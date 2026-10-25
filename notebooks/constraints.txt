@@ -1,0 +1,43 @@
+# Constraints for the clone-your-voice Colab notebook (design doc section 4.1).
+#
+# Used as:  uv pip install -r requirements-engine.txt -c constraints.txt
+#
+# Applio's requirements-engine.txt (at the pinned commit) already pins its top-level
+# packages exactly (numpy, torch, transformers, ...). What it does NOT pin are the
+# transitive packages below, which are the ones that tend to break when a new release
+# appears or when they clash with what Colab ships (Colab preinstalls its own numpy,
+# protobuf, setuptools, huggingface-hub, ... and changes them every few weeks).
+#
+# Defence in depth:
+#   1. The notebook installs into a private virtualenv (/content/applio-venv), so
+#      Colab's preinstalled packages are never touched or downgraded.
+#   2. This file freezes the risky transitive packages to the versions that
+#      `uv pip compile requirements-engine.txt` resolved for Linux x86_64 / Python 3.12
+#      / cu128 when this file was written (2026-10).
+#
+# Do NOT constrain: numpy, torch, torchaudio, transformers, scipy, onnx... because
+# requirements-engine.txt pins them already (a duplicate pin that disagrees would
+# make the install fail).
+
+# numba/llvmlite: librosa needs numba, and numba only works with a limited numpy range.
+# This is the #1 cause of "numpy.core.multiarray failed to import" style crashes.
+numba==0.68.0
+llvmlite==0.50.0
+
+# tensorboard imports pkg_resources, which newer setuptools no longer ship.
+# UNCERTAIN: the exact upper bound; 81.0.0 was what resolved. Revisit if tensorboard
+# starts failing with "No module named pkg_resources".
+setuptools<82
+
+# transformers 5.x is picky about its huggingface-hub / tokenizers / safetensors trio.
+huggingface-hub==1.16.1
+tokenizers==0.22.2
+safetensors==0.8.0
+
+# protobuf: tensorboard + onnx both use it; Colab ships a different major version.
+# UNCERTAIN: protobuf 7.x resolves fine, but only a real run proves tensorboard and onnx
+# are happy with it at runtime.
+protobuf==7.36.2
+
+# Pillow/matplotlib pair (matplotlib is pinned in requirements-engine.txt).
+pillow==13.0.0

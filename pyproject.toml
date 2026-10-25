@@ -1,0 +1,60 @@
+[project]
+name = "clone-your-voice"
+version = "0.0.1"
+description = "Clone your own voice: train on Colab, speak locally on Apple Silicon."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+# The thin CLI (`cyv`) must stay light: no torch, no heavy imports.
+dependencies = [
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+# Installed by `cyv setup` into the daemon venv, never into the CLI's env.
+# Applio's own requirements are installed from its pinned commit (see cyvd.engine_applio.pin).
+daemon = [
+    "torch>=2.4",
+    "kokoro>=0.9.4",
+    "audioseal>=0.2.0",
+    "soundfile>=0.12",
+    "soxr>=0.5",
+]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+cyv = "cyv.cli.main:main"
+cyvd = "cyvd.server.main:main"
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cyv", "src/cyvd"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S"]
+# E501: `ruff format` owns line length; long user-facing strings are fine.
+ignore = ["S101", "S603", "S607", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S"]
+# Notebook cells import where they are used and fetch helpers from a fixed https URL.
+"notebooks/*.ipynb" = ["E402", "S310"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "torch: needs torch installed",
+    "slow: downloads models or runs real inference",
+]

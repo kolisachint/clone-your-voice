@@ -1,0 +1,73 @@
+name: Benchmark result
+description: Share a measurement from your own Mac or from a spike.
+labels: ["benchmark"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Benchmarks help us decide defaults. Report honest numbers, including bad ones. Please say how you measured them.
+  - type: input
+    id: chip
+    attributes:
+      label: Chip
+      placeholder: "Apple M1, 8-core GPU"
+    validations:
+      required: true
+  - type: input
+    id: ram
+    attributes:
+      label: RAM
+      placeholder: "8 GB"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "26.0"
+    validations:
+      required: true
+  - type: input
+    id: cyv-version
+    attributes:
+      label: cyv version (or commit)
+      placeholder: "0.0.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: benchmark
+    attributes:
+      label: Benchmark
+      options:
+        - B0 clean-Mac install
+        - B1 training time and quality
+        - B2 memory use
+        - B3 warm latency and MPS vs CPU
+        - B4 watermark robustness
+        - B5 weights_only loading
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: numbers
+    attributes:
+      label: Numbers
+      description: Include the measurements, with units, and how many runs.
+      placeholder: |
+        | Metric | Value |
+        |---|---|
+        | Warm latency for 10 s line | ... s |
+    validations:
+      required: true
+  - type: textarea
+    id: method
+    attributes:
+      label: Method
+      description: What did you run, and what settings did you use?
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Anything unusual, such as other apps running or a warm or cold start.

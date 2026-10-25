@@ -1,0 +1,39 @@
+name: Feature request
+description: Suggest an improvement or a new feature.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before you start, check [docs/DESIGN.md](https://github.com/kolisachint/clone-your-voice/blob/main/docs/DESIGN.md). Some things, like live microphone input or a web interface, are deliberately out of scope for v1.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like to see?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Presets (output formats)
+        - Recording and dataset prep
+        - Colab notebook
+        - Voice packs
+        - CLI
+        - Docs
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered

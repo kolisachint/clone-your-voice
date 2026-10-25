@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Usage policy
+    url: https://github.com/kolisachint/clone-your-voice/blob/main/USAGE_POLICY.md
+    about: Read this before you open an issue about training or using a voice.
+  - name: Report a security problem
+    url: https://github.com/kolisachint/clone-your-voice/security/advisories/new
+    about: Please report security problems privately, not in a public issue.

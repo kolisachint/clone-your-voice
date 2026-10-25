@@ -1,0 +1,3 @@
+# Applied to every `uv pip install` into the daemon venv by `cyv setup`.
+# preshed 3.0.14 (pulled in via misaki -> spaCy) breaks en_core_web_sm with an OverflowError.
+preshed==3.0.9

@@ -1,0 +1,33 @@
+# Output presets (design §4.5). Keys map to ffmpeg audio options; see presets.py.
+[master]
+description = "WAV, 48 kHz, 24-bit"
+ext = "wav"
+codec = "pcm_s24le"
+sample_rate = 48000
+
+[telegram]
+description = "OGG Opus voice note, mono, 48 kHz, 32 kbps VBR"
+ext = "ogg"
+codec = "libopus"
+sample_rate = 48000
+channels = 1
+bitrate = "32k"
+vbr = true
+application = "voip"
+
+[whatsapp]
+description = "OGG Opus voice note, mono, 48 kHz, 32 kbps VBR"
+ext = "ogg"
+codec = "libopus"
+sample_rate = 48000
+channels = 1
+bitrate = "32k"
+vbr = true
+application = "voip"
+
+[mp3]
+description = "MP3, 192 kbps"
+ext = "mp3"
+codec = "libmp3lame"
+sample_rate = 44100
+bitrate = "192k"

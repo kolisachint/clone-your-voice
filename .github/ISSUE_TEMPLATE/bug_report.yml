@@ -1,0 +1,63 @@
+name: Bug report
+description: Something does not work as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please run `cyv doctor` first and paste its output below. Do not attach voice recordings or voice packs.
+  - type: input
+    id: cyv-version
+    attributes:
+      label: cyv version
+      placeholder: "0.0.1"
+    validations:
+      required: true
+  - type: input
+    id: chip
+    attributes:
+      label: Chip
+      placeholder: "Apple M1, 8-core GPU"
+    validations:
+      required: true
+  - type: input
+    id: ram
+    attributes:
+      label: RAM
+      placeholder: "8 GB"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "26.0"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. cyv ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `cyv doctor`
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error messages or logs
+      description: Remove anything private before pasting.
+      render: text

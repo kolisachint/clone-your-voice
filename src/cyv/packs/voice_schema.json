@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kolisachint/clone-your-voice/voice.schema.json",
+  "title": "cyv voice pack manifest (voice.json) v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "name", "engine", "engine_version", "rvc_version",
+    "sample_rate", "embedder", "f0_method", "vocoder", "tts_base", "pitch_shift", "sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "name": {"type": "string", "pattern": "^[a-z0-9_-]{1,32}$"},
+    "engine": {"enum": ["applio-rvc"]},
+    "engine_version": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
+    "rvc_version": {"enum": ["v2"]},
+    "sample_rate": {"enum": [32000, 40000, 48000]},
+    "embedder": {"enum": ["contentvec"]},
+    "f0_method": {"enum": ["rmvpe"]},
+    "vocoder": {"enum": ["HiFi-GAN"]},
+    "epochs": {"type": "integer", "minimum": 1},
+    "dataset_seconds": {"type": "number", "minimum": 0},
+    "tts_base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["voice", "lang"],
+      "properties": {
+        "voice": {"type": "string", "pattern": "^[a-z]{2}_[a-z0-9]{1,24}$"},
+        "lang": {"type": "string", "pattern": "^[a-z]$"}
+      }
+    },
+    "pitch_shift": {"type": "integer", "minimum": -24, "maximum": 24},
+    "sha256": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model.pth", "model.index"],
+      "properties": {
+        "model.pth": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "model.index": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "license": {"type": "string"}
+  }
+}

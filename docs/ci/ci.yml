@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Create venv
+        run: uv venv
+      - name: Install ruff
+        run: uv pip install ruff
+      - name: Ruff check
+        run: .venv/bin/ruff check .
+      - name: Ruff format check
+        run: .venv/bin/ruff format --check .
+      # Design §6.1: never unpickle untrusted checkpoints.
+      - name: torch.load must use weights_only=True
+        run: |
+          if grep -rnE 'torch\.load\(' --include='*.py' src notebooks scripts | grep -v 'weights_only=True'; then
+            echo "::error::torch.load without weights_only=True"; exit 1
+          fi
+      - name: Thin CLI must not import torch
+        run: |
+          if grep -rnE '^\s*(import torch|from torch)' src/cyv; then
+            echo "::error::src/cyv must never import torch"; exit 1
+          fi
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Create venv
+        run: uv venv --python 3.12
+      - name: Install project with dev extras
+        run: uv pip install -e '.[dev]'
+      - name: Install torch (CPU, Linux)
+        if: runner.os == 'Linux'
+        run: uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Install torch (macOS)
+        if: runner.os == 'macOS'
+        run: uv pip install torch
+      - name: Install ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - name: Install ffmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Run tests
+        run: .venv/bin/python -m pytest
