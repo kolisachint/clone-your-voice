@@ -1,6 +1,6 @@
 # clone-your-voice — Design (v0.4, signed off for M1 spikes)
 
-Status: **design accepted; next step is the M1 spikes (B0–B6)**. Product code starts only after M1 results are folded back into this doc.
+Status: **design accepted. The Linux-testable scaffold is implemented (§11). B4–B6 are done on Linux CPU. B0–B3 need an Apple Silicon Mac.**
 
 ## 0. Decisions log
 
@@ -76,7 +76,7 @@ Let anyone clone **their own** voice cheaply: train once on Colab, then run `cyv
 | B1 | T4 training time and quality vs epochs (100/200/400) and data length (2/5/10 min) |
 | B2 | Resident memory on an 8 GB M1 (HuBERT + RMVPE + Kokoro + 1 voice) |
 | B3 | Warm latency for a 10 s line. Also the **M1 MPS SDPA bug on macOS 26** and the cost of CPU fallback. Decide the MPS-vs-CPU policy per component. |
-| B4 | AudioSeal vs Perth: detection rate and bit accuracy after an ffmpeg libopus 32 kbps round trip, MP3 192 kbps and resampling. Also audibility, CPU/MPS cost per 10 s, and false-positive rate on 100 clean clips. The winner becomes the default. |
+| B4 | AudioSeal vs Perth: detection rate and bit accuracy after an ffmpeg libopus 32 kbps round trip, MP3 192 kbps and resampling. Also audibility, CPU/MPS cost per 10 s, and false-positive rate on 50 clean clips. The winner becomes the default. **Done (Linux CPU): AudioSeal stays default** (§11). |
 | B5 | Does `torch.load(weights_only=True)` load Applio checkpoints? (needed for §6.1) |
 | B6 | Re-check SynthID: is there an embedding SDK or API for audio that third parties can run offline? (As of Oct 2026, no.) |
 
@@ -209,7 +209,7 @@ The socket permissions and peer-uid check keep out *other users*. They do not st
     - Published benchmarks (AudioMarkBench) rank it most robust among open watermarks.
   - **Fallback backend:** Resemble Perth (MIT), if B4 shows it beats AudioSeal on Opus.
   - **Order of operations:** watermark the 24/48 kHz WAV *before* the preset encode. The pipeline is resample → embed → upsample (if needed) → ffmpeg.
-  - **Limits:** it's provenance, not security. Opus at 32 kbps is a known weak spot. If B4 shows detection doesn't survive voice-note presets, the docs say so plainly rather than ship a placebo.
+  - **Limits:** it's provenance, not security. B4 (Linux CPU, 20 clips): both AudioSeal and Perth survived the Opus 32 kbps voice-note preset 20/20 with 0/50 false positives. AudioSeal fails at Opus 8 kbps, so detection is not guaranteed after heavier re-encoding, and the docs say so.
 - **Not compliance:** none of this makes a use acceptable under Colab's terms. Users are responsible.
 
 ### 6.4 Privacy
@@ -259,3 +259,28 @@ Weights and voices are never committed.
 | espeak-ng GPL via Kokoro | Runtime pip dependency only; no bundled wheelhouse; documented in `docs/licenses.md` |
 | 8 GB memory pressure | One warm voice, idle exit, B2 |
 | Poor datasets lead to bad clones and churn | `dataset prepare` checks, notebook self-test, recording guide |
+
+## 11. Implementation status and findings (Oct 2026, Linux x86 CPU)
+
+The Linux-testable parts of M2 are in the repo: the thin CLI, the daemon, hardened import, the components, the Colab notebook, and docs. 214 tests pass. Findings that refine the design:
+
+- **End to end works (Linux CPU):** Kokoro → Applio convert → AudioSeal embed/detect (prob 1.0, exact message; clean audio 0.02–0.05). Peak RSS was **2.9 GB**, which is above the 2.5 GB target, so B2 on an 8 GB M1 is now the key memory question. Timings were measured on a contended CPU and aren't quotable (`docs/benchmarks/linux-cpu-e2e.md`).
+- **B4:** AudioSeal is the default and Perth is the fallback. Both survive the voice-note preset. Perth is more robust to Opus 8 kbps and noise, but quieter (SNR 14.9 dB vs 28.5 dB), carries no payload, and is ~7× cheaper on CPU (`docs/benchmarks/B4-watermark.md`).
+- **B5:** 7 real Applio and RVC-WebUI checkpoints load with plain `weights_only=True`, with no safe-globals needed, so the §6.1 sanitize plan holds. The sanitizer tolerates `sr` as str or int and `f0` as int or bool. Applio's `model_information.py` and `inspect_checkpoint.py` fall back to unsafe loading, so cyv never calls them, and CI enforces that.
+- **B6:** still no third-party SynthID audio embedding as of Oct 2026.
+- **Applio @ pin quirks:**
+  - `convert_audio` is file-only, so the engine calls `get_vc`/`load_hubert`/`vc.pipeline` in memory and memoizes the FAISS index.
+  - Applio resolves base models relative to its cwd, so the engine symlinks them from `~/.cyv/models` and runs Applio calls under a locked chdir.
+  - `core.py` exits 0 even on failure, so the notebook checks for output files instead.
+  - At this commit the index is `logs/<name>/<name>.index`.
+- **Install quirks for `cyv setup` (B0 must confirm on macOS):**
+  - `preshed==3.0.9` is pinned in `src/cyv/daemon-constraints.txt`.
+  - `en_core_web_sm` is pre-installed, because otherwise Kokoro pip-installs it from GitHub at first use.
+  - The bundled espeak-ng library aborted on this Linux box, so `CYV_ESPEAK_LIBRARY` can point at a system library.
+  - `soxr` has been added to the daemon dependencies.
+  - AudioSeal's own loader uses unsafe unpickling. That's acceptable only because its checkpoints are sha256-pinned in `src/cyv/models.toml`.
+- **voice.json `sha256`** records the uploaded `model.pth`. The installed file is the sanitized re-save.
+- **CI** is parked at `docs/ci/ci.yml` until a maintainer with GitHub `workflow` permission moves it into `.github/workflows/`.
+
+**Next (needs an Apple Silicon Mac):** B0 clean install via `cyv setup`, B2 memory, B3 latency and the MPS/SDPA fallback, B1 on a real Colab T4, the macOS `LOCAL_PEERCRED` path, and AudioSeal cost on MPS.
+

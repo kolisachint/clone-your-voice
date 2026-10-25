@@ -29,6 +29,12 @@ jobs:
           if grep -rnE 'torch\.load\(' --include='*.py' src notebooks scripts | grep -v 'weights_only=True'; then
             echo "::error::torch.load without weights_only=True"; exit 1
           fi
+      # B5: these Applio tools fall back to weights_only=False; cyv must never call them.
+      - name: No unsafe Applio checkpoint inspectors
+        run: |
+          if grep -rnE 'model_information|inspect_checkpoint' --include='*.py' src notebooks; then
+            echo "::error::do not call Applio's unsafe checkpoint inspectors"; exit 1
+          fi
       - name: Thin CLI must not import torch
         run: |
           if grep -rnE '^\s*(import torch|from torch)' src/cyv; then
