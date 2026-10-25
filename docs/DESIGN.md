@@ -1,151 +1,250 @@
-# clone-your-voice — Design (DRAFT v0.1)
+# clone-your-voice — Design (DRAFT v0.3)
 
-Status: **proposal, not yet agreed**. No code until the open questions at the bottom are settled.
+Status: **decisions recorded; end-to-end review incorporated**. No code until signed off.
 
-## 1. Goal
+## 0. Decisions log
 
-Let anyone clone **their own** voice cheaply:
+| # | Decision |
+|---|---|
+| D1 | License: **MIT** (matches Applio) |
+| D2 | Default text-to-speech: **offline Kokoro**. Edge-TTS comes later as an opt-in. |
+| D3 | Watermark: **on by default, user can turn it off** |
+| D4 | Interface: **CLI only**. The daemon is internal and has no network port. |
+| D5 | v1 platform: **macOS on Apple Silicon only**. Training is in the cloud. |
+| D6 | "Hybrid" means **cloud training + local inference** |
+| ADR-001 | Python, no Rust: the bottleneck is GPU math and cold start, not CPU |
+| ADR-002 | Voice pack v1 format (§4.2) |
+| ADR-003 | The daemon speaks length-prefixed JSON over a unix socket using plain `asyncio`, **not FastAPI/HTTP** (one local client; faster import, less surface) |
 
-- **Train in the cloud** on a free or cheap GPU (Colab first), so laptops never take sustained heat.
-- **Infer locally** through a warm, resident daemon, with sub-second to ~1.5 s turnaround.
-- **Community-driven**: engines, TTS backends, output presets and platforms are plug-ins, not forks.
+## 1. Goal and scope
 
-Non-goals for v1: real-time voice changing (live mic), cloning third-party voices, hosted SaaS, and mobile apps.
+Let anyone clone **their own** voice cheaply: train once on Colab, then run `cyv say "hello" --preset telegram` locally on an M1 Mac.
 
-## 2. Decisions carried over from the original plan
+**v1 includes:** `setup`, `doctor`, `dataset prepare`, the Colab notebook, `voices import/list/remove`, `say`, `convert`, 4 output presets, the watermark, and a usage policy.
 
-| Decision | Status | Note |
-|---|---|---|
-| No Rust; stay in Python | **Accept** (ADR-001) | The bottleneck is GPU matmul plus import/load cold start, not CPU. |
-| Hybrid: cloud training, local inference | **Accept** | This is the core architecture. |
-| Persistent daemon to kill cold start | **Accept** | Applio already caches the converter (`lru_cache`) and the voice model (`get_vc`). |
-| Applio/RVC as the first engine | **Accept** | Applio is MIT (code and weights). Use `core.py`/`VoiceConverter` in-process. |
-| FP16 on M1 for speed | **Reject** | Applio's MPS path is FP32 by design. Plan on FP32 and benchmark later. |
-| Edge-TTS as the text base voice | **Optional only** | It is an unofficial use of Microsoft's online service: it needs internet and carries ToS risk. The default must be offline. |
-| `.m4a` for WhatsApp voice bubbles | **Reject** | WhatsApp and Telegram voice bubbles both need OGG/Opus mono. M4A sends as a plain audio file. |
-| "1 s sleep between paragraphs" thermal trick | **Replace** | Use a configurable duty-cycle or queue throttle, backed by measured data, not folklore. |
-| Bash `speak.sh` as the main client | **Replace** | Use a cross-platform Python CLI. A shell wrapper is fine as sugar. |
+**Not in v1:** live mic, Windows/Linux, an HTTP API, cloning third-party voices, a GUI, a plug-in registry, multiple warm voices, launchd integration, a voice-tuning UI, and watermark detection (that moves to M3).
 
-## 3. Claims to fix or benchmark before we rely on them
+**Expectation to state in the README:** `say` = Kokoro's delivery with your timbre. Your *timbre*, not your natural rhythm or intonation. For the most "you" result, use `convert` on a recording of yourself performing the line.
 
-Verified against Applio's source and docs, Oct 2026:
+## 2. End-to-end user journey
 
-- **Index size of ~2 MB: likely wrong.** A faiss IVF index stores every feature frame, so it is tens of MB for 2–5 min of audio and hundreds of MB for large datasets. The ~55 MB `.pth` figure is right.
-- **Training in 15–25 min on a T4: unverified.** No authoritative numbers exist, and community reports cite 500–800 epochs. We will benchmark this as **B1**.
-- **RAM of 1.6–2.1 GB: plausible but unmeasured** (**B2**).
-- **M1 + macOS 26 risk:** there is a reported MPS attention (SDPA) kernel bug on A14/M1-class chips. Applio sets `PYTORCH_ENABLE_MPS_FALLBACK=1` and retries on CPU. Our setup command must detect and report this (**B3**).
-- **Colab policy:** Colab disallows "creating deepfakes", and free runtimes may not drive things primarily through a web UI. **Use Applio's NoUI notebook / `core.py` CLI path, not the Gradio UI.** The consent gate in §6 helps here too.
+```
+① record ─► ② cyv dataset prepare ─► ③ Colab notebook ─► ④ download pack ─► ⑤ cyv voices import ─► ⑥ cyv say / convert
+  (Mac)       (Mac, CPU, seconds)      (cloud T4)          (browser, manual)    (Mac, sandboxed)        (Mac, warm daemon)
+```
 
-Bugs in the plan's sample code, recorded so we don't copy them:
+1. **Record** 5–10 min of clean, dry speech, following `docs/guides/recording.md` (benchmark B1 confirms the minimum).
+2. **`cyv dataset prepare <dir>`**:
+   - Converts to mono, resamples, trims silence, normalizes loudness.
+   - Rejects clipping, music, too-short sets.
+   - Asks for a one-line consent attestation.
+   - Writes `dataset.zip`.
+3. **Colab notebook**, using Applio's **NoUI/CLI** path (never the Gradio UI):
+   - Install with a **pinned constraints file**.
+   - Mount Drive and upload `dataset.zip`.
+   - Run preprocess → extract → train → index, with checkpoints saved to Drive so a disconnect can resume.
+   - **Self-test:** render a fixed sentence, show a loss summary, PASS/FAIL.
+   - Export `<name>.cyvpack.zip` to Drive.
+   - Clear failure messages for: no GPU, quota exhausted, Drive auth failed.
+4. **Download** the pack from Drive in the browser. v1 has no Drive API integration.
+5. **`cyv voices import <path>`**: hardened import (§6.1).
+6. **`cyv say` / `cyv convert`**: the CLI starts the daemon on demand, and the daemon exits after it has been idle for a while.
 
-- `speak.sh`: the chain `[ ] && echo || [ ] && echo || echo` produces `output_ogg.ogg\nm4a` for `ogg`, a filename containing a newline (reproduced). The script also has no `curl -f`, so a server error becomes the output "audio". It overwrites the same file on every run, and "24-bit" is claimed but never set (`pcm_s24le` is missing).
-- `server.py`: fixed `/tmp/input_voice.wav` paths race under concurrent requests. `@app.on_event` is deprecated (use `lifespan`). There is no auth: a browser page can POST a form to `127.0.0.1` (CSRF), and so can any local process.
+## 3. Facts and benchmarks
+
+**Verified (Applio source/docs, Kokoro repos, Oct 2026)**
+
+- **Applio**
+  - MIT. `core.py` exposes importable inference functions.
+  - The converter and model are cached in-process, so a warm daemon is feasible.
+  - On macOS it uses MPS in **FP32** (not FP16), with `PYTORCH_ENABLE_MPS_FALLBACK=1`, some CPU frontends, and a CPU retry after Metal errors.
+- **File sizes:** `.pth` ≈ 55 MB. `.index` is **tens of MB or more** (it scales with data), not 2 MB.
+- **Kokoro**
+  - Apache-2.0 code and weights.
+  - Languages: en-US/GB, es, fr, hi, it, ja, pt-BR, zh.
+  - MPS works only with `PYTORCH_ENABLE_MPS_FALLBACK=1`.
+  - It **hard-depends on espeak-ng (GPL-3.0)** via `misaki[en]` → `espeakng-loader`, for out-of-dictionary words.
+- **Voice bubbles:** WhatsApp and Telegram both need **OGG/Opus mono**.
+- **Colab:** forbids "creating deepfakes", and its free tier restricts web-UI-driven notebooks. Hence the NoUI path.
+
+**Spikes (milestone M1), which gate everything else**
+
+| ID | Question |
+|---|---|
+| **B0** | **Clean-Mac install** of Applio@pin + Kokoro: can they share one venv (Python/torch/numpy constraints)? Which deps need Xcode CLT or lack arm64 wheels? How long does it take? |
+| B1 | T4 training time and quality vs epochs (100/200/400) and data length (2/5/10 min) |
+| B2 | Resident memory on an 8 GB M1 (HuBERT + RMVPE + Kokoro + 1 voice) |
+| B3 | Warm latency for a 10 s line. Also the **M1 MPS SDPA bug on macOS 26** and the cost of CPU fallback. Decide the MPS-vs-CPU policy per component. |
+| B4 | Perth watermark: survives Opus 32 kbps? Audible? CPU cost? Perth license and weights confirmed? |
+| B5 | Does `torch.load(weights_only=True)` load Applio checkpoints? (needed for §6.1) |
+
+Performance targets (warm ≤1.5 s, ≤2.5 GB) are **provisional** and stay out of the README until B2/B3 report.
+
+**Bugs in the original sample code (do not copy):**
+- `speak.sh`:
+  - Its `&& ||` chain puts a newline in the `ogg` filename (reproduced).
+  - It has no `curl -f`.
+  - It overwrites a fixed output path every run.
+  - It never sets 24-bit.
+- `server.py`:
+  - It races on fixed `/tmp` paths.
+  - It uses the deprecated `on_event`.
+  - Its open localhost port is exposed to browser CSRF.
 
 ## 4. Architecture
 
 ```
-            ┌────────────── CLOUD (train) ──────────────┐
- clips ──►  │ notebooks/train.ipynb  (pinned Applio, NoUI) │ ──► voice pack (.zip)
-            │  preprocess → extract → train → index        │      model.pth
-            └──────────────────────────────────────────────┘      model.index
-                                                                   voice.json  (manifest)
-                                     download / import             consent.json
-                                                │
-            ┌────────────── LOCAL (infer) ──────▼────────────────────────────┐
-            │  cyv CLI ──► cyvd daemon (unix socket / localhost + token)     │
-            │                 ├─ TTS backend   (kokoro | piper | edge*)      │
-            │                 ├─ Engine        (applio-rvc | future …)       │
-            │                 ├─ Device        (cuda | mps | cpu, auto)      │
-            │                 ├─ Watermark     (on by default)               │
-            │                 └─ Output preset (master | telegram | whatsapp)│
-            └────────────────────────────────────────────────────────────────┘
+┌──────── CLOUD ────────┐           ┌────────────────────────── MAC ───────────────────────────────┐
+│ train_colab.ipynb     │ .cyvpack  │ cyv  (thin CLI, no torch) ──unix socket──► cyvd (daemon venv) │
+│ Applio @ pin X        │ ────────► │   writes output files              ├─ kokoro  (text → guide)  │
+│ + constraints.txt     │  (manual) │   runs ffmpeg presets              ├─ applio-rvc @ pin X      │
+└───────────────────────┘           │                                    └─ watermark               │
+                                    └──────────────────────────────────────────────────────────────┘
 ```
 
-### 4.1 Components
+### 4.1 Packaging and install
 
-1. **Training notebook** (`notebooks/`): a thin wrapper over a **pinned** Applio commit. It runs the NoUI flow, validates the dataset (mono, sample rate, length, clipping, silence ratio), and emits a **voice pack**. Later backends (Kaggle, RunPod, local CUDA) reuse the same pack format.
-2. **Voice pack** (the contract between cloud and local), stored at `~/.cyv/voices/<name>/`:
-   - `model.pth`, `model.index`
-   - `voice.json`: engine, engine version, sample rate, f0 method, base pitch, training metadata, sha256 of each file, license
-   - `consent.json`: who the voice belongs to, a self-attestation, and the date (see §6)
-3. **Daemon `cyvd`**: FastAPI + uvicorn. It loads the engine once and keeps the N most recent voices warm (LRU, memory-capped). It serializes GPU work through one queue, so concurrency stays safe and thermals stay predictable. Per-request temp files go in a private temp dir.
-4. **CLI `cyv`** (Python): `cyv setup`, `cyv doctor`, `cyv voices import|list`, `cyv say "text" --voice me --preset telegram`, `cyv convert in.wav --voice me`, and `cyv serve`. It auto-starts the daemon if it isn't running.
-5. **Output presets** (ffmpeg): `master` (WAV 48 kHz, 24-bit), `telegram` / `whatsapp` (OGG Opus, mono, 48 kHz, ~32 kbps), and `mp3`. Presets are data files, so contributors can add their own.
+- **Two layers:**
+  - `cyv`: a tiny pure-Python package (`pipx`/`uv tool install`) that never imports torch, so `cyv --help` is instant.
+  - `cyv setup`: builds the **daemon venv** with `uv` from a committed, macOS-arm64-tested **`uv.lock`**. That venv holds Applio@pin, Kokoro, torch and Perth.
+- **Prerequisites:** Xcode Command Line Tools if B0 finds any compiled deps, plus **ffmpeg from Homebrew**. `doctor` checks both and prints the exact fix.
+- **Model downloads:** HuBERT/ContentVec, RMVPE, Kokoro weights. Fetched once and verified by sha256.
+- **If B0 shows Applio and Kokoro conflict,** they get two daemon venvs. Kokoro then runs as a second worker process behind the same daemon. That's decided after B0, not now.
+- **No prebuilt wheelhouse** is distributed. It would bundle GPL espeak-ng, and that changes our license obligations. Users install the dependencies themselves from PyPI.
 
-### 4.2 API (localhost only)
+### 4.2 Voice pack v1 (ADR-002)
 
-- Transport: **unix socket by default** on macOS/Linux. TCP on `127.0.0.1` is opt-in and requires a bearer token from `~/.cyv/token`. TCP mode rejects requests whose `Origin` header is set.
-- `GET /health` and `GET /voices`
-- `POST /tts` with `{text, voice, pitch, preset}` returns audio
-- `POST /convert` takes multipart audio + voice + pitch + preset and returns audio
-- `POST /voices/reload`
+```
+<name>.cyvpack.zip
+├── model.pth        (sanitized on import, §6.1)
+├── model.index
+├── voice.json       schema_version, name (^[a-z0-9_-]{1,32}$), engine="applio-rvc",
+│                    engine_version=<commit>, rvc_version, sample_rate, embedder,
+│                    f0_method, vocoder, epochs, dataset_seconds,
+│                    tts_base {voice, lang}, pitch_shift, sha256{…}
+└── consent.json     attestation text + version, owner_name, created_at
+```
 
-### 4.3 Plug-in points (where the community contributes)
+- **Unknown values fail closed:** an unknown `schema_version`, `embedder`, `vocoder` or `rvc_version` causes import to refuse with a clear message. A pack must never silently sound wrong.
+- `tts_base` is chosen at `dataset prepare` (`--base-voice`, with a sensible default per pitch range).
 
-Python entry points; each is a small interface:
+### 4.3 Daemon `cyvd`
 
-| Group | Interface | v1 implementations | Candidates later |
-|---|---|---|---|
-| `cyv.engines` | `load(pack)`, `convert(wav, pitch) -> wav` | applio-rvc | GPT-SoVITS (MIT), OpenVoice v2 (MIT), Chatterbox (MIT, zero-shot) |
-| `cyv.tts` | `synth(text, lang) -> wav` | kokoro (Apache-2.0), edge (opt-in) | piper (now GPL-3.0, so it stays an optional plug-in) |
-| `cyv.presets` | data (ffmpeg args) | master, telegram, whatsapp, mp3 | podcast, video-editor |
-| `cyv.trainers` | produce a voice pack | colab-applio | kaggle, local-cuda, runpod |
+- **Protocol:** `asyncio` unix socket with length-prefixed JSON frames. Requests: `health`, `say`, `convert`, `reload`, `shutdown`. Audio comes back as raw bytes. **The daemon never takes a filesystem path for output.** The CLI writes the file and runs ffmpeg.
+- **Socket:** `~/.cyv/run/cyvd.sock`. The directory is created 0700 *before* bind. If the path would exceed macOS's ~104-byte limit, fall back to `$TMPDIR/cyv-<uid>/`. The daemon checks the peer uid (`LOCAL_PEERCRED`).
+- **Spawn and idle-exit, race-free:**
+  - The CLI takes an `flock` on `~/.cyv/run/cyvd.lock`, connects, and on refused or stale it unlinks and spawns under the lock, then waits for `health`.
+  - The daemon exits after `idle_timeout` (default 15 min) only when the queue is empty, checked under a mutex.
+  - The CLI retries once on a connection reset.
+  - SIGTERM shuts down cleanly and removes the socket.
+- **Work:** one GPU worker queue (serialized), one warm voice, and a per-request temp dir. Kokoro handles sentence splitting. Chunks are concatenated.
 
-**License rule:** core stays permissive. Non-commercial weights (F5-TTS, XTTS-v2) are only allowed as separately installed plug-ins with a visible license flag.
+### 4.4 CLI surface (v1)
 
-## 5. Platform and performance targets
+```
+cyv setup | doctor
+cyv dataset prepare <dir> [-o dataset.zip] [--base-voice am_adam]
+cyv voices import <pack> | list | remove <name> | default <name>
+cyv say "<text>" [--voice] [--preset] [--pitch] [-o file|-] [--no-watermark]
+cyv convert <in.wav> [--voice] [--preset] [--pitch] [-o file|-] [--no-watermark]
+cyv serve | stop | status
+```
 
-- Tier 1: Apple Silicon (M1/8 GB is the floor) and Linux + NVIDIA. Tier 2: Windows + NVIDIA. Tier 3: CPU-only (works, but slow).
-- Targets, to be confirmed by benchmarks:
-  - Warm `cyv say` for a 10 s line: ≤1.5 s on M1.
-  - Daemon resident memory: ≤2.5 GB with 1 voice warm.
-  - Idle CPU: ~0%.
-- Thermals: a batch job (audiobook) goes through the queue with an optional `--duty-cycle` setting. `cyv doctor` reports the device, whether MPS fallback is active, and memory use.
+`-o -` writes to stdout, which is how editors and scripts integrate without a network API.
 
-## 6. Safety and consent (required for a "clone anyone's own voice" tool)
+### 4.5 Presets (one data file, `presets.toml`)
 
-Without this the project risks Colab/GitHub takedowns and erodes community trust.
+| Preset | Format |
+|---|---|
+| `master` | WAV, 48 kHz, `pcm_s24le` |
+| `telegram`, `whatsapp` | OGG Opus, mono, 48 kHz, 32 kbps VBR |
+| `mp3` | 192 kbps |
 
-- `USAGE_POLICY.md`: clone only voices you own or have explicit permission for. No impersonation, fraud, or harassment.
-- A **consent gate** at training and import: the user writes a self-attestation into `consent.json`. Optionally, they record a short spoken consent phrase that becomes part of the dataset.
-- A **watermark on every output by default** (e.g. Resemble's Perth, MIT). This needs verification (**B4**: does it survive Opus at 32 kbps?).
-- No telemetry. Voice data never leaves the user's machines or their own Colab session.
+### 4.6 Extensibility, without a framework yet
 
-## 7. Repository layout (proposed)
+Clean internal interfaces (`Engine`, `TTS`, `Trainer`) are kept as module boundaries. **Entry-point plug-ins arrive when a second implementation exists** (likely edge-tts, or a second engine). Until then, community contributions are presets, recording guides, languages, benchmarks, notebook fixes and docs.
+
+License rule (for later): GPL or non-commercial components (piper1-gpl, F5-TTS weights, XTTS-v2) are only ever separate opt-in packages.
+
+## 5. Platform
+
+- Apple Silicon M1+ on a macOS version floor set by B0/B3. Intel is unsupported.
+- Internals stay device-agnostic, so Linux/NVIDIA can be added later without redesign.
+- CI runs on GitHub macOS arm64 runners. They have no MPS, so CI is CPU-only and uses a tiny fixture voice. MPS performance is tracked manually in `docs/benchmarks/`.
+
+## 6. Security, safety, privacy
+
+### 6.1 Pack import (the real attack surface)
+
+A `.pth` file is a pickle, and loading an untrusted one can execute code. A sha256 inside the pack proves nothing about who made it. Import therefore:
+
+1. **Zip hygiene:**
+   - Never use `extractall`.
+   - Allowlist exactly the 4 member names. Reject absolute paths, `..`, symlinks, and extra members.
+   - Cap the total decompressed size (1 GB) and per-member size.
+   - Extract to a temp dir.
+2. **Validation:** check the JSON schema of `voice.json`, the name regex, sha256 checksums, and the engine/embedder/vocoder allowlist.
+3. **Sanitize weights:**
+   - In a **separate subprocess**, `torch.load(..., weights_only=True)`. Refuse on failure.
+   - Re-save only the tensors and the plain config to a fresh `.pth`. From then on the daemon only ever loads sanitized files.
+   - Depends on B5. If Applio checkpoints need non-tensor objects, add an explicit allowlist (`torch.serialization.add_safe_globals`) rather than ever using `weights_only=False`.
+4. **Install:** move atomically into `~/.cyv/voices/<name>/`.
+5. **Warning:** "Packs from other people are like software. Import only from people you trust." CI greps for `torch.load` calls without `weights_only=True`.
+
+### 6.2 Local daemon threat model (stated honestly)
+
+The socket permissions and peer-uid check keep out *other users*. They do not stop malware already running as you. If you are compromised, an attacker could synthesize your voice. Mitigations: the daemon exits when idle, there is no network exposure, and there are no path-taking requests.
+
+### 6.3 Consent and watermark
+
+- **Consent is an attestation record, not enforcement.** `dataset prepare` asks for a one-line attestation and stores it in the pack. `import` only validates the schema; it doesn't gate on consent, because a self-authored file is trivially forged. `USAGE_POLICY.md`: only your own voice or one you have explicit permission for. No impersonation, fraud or harassment.
+- **Watermark** (Perth): **on by default, user can turn it off** (D3). It ships in **M2**. It's provenance, not security. If B4 shows it doesn't survive Opus, we say so in the docs rather than ship a placebo.
+- **Not compliance:** none of this makes a use acceptable under Colab's terms. Users are responsible.
+
+### 6.4 Privacy
+
+- There is no telemetry. Voice data leaves the Mac only through the user's own Drive/Colab session.
+- The docs state that deleting from Drive goes to **Trash**, and include instructions to empty it.
+
+## 7. Repository layout
 
 ```
 clone-your-voice/
-├── README.md  LICENSE (Apache-2.0 or MIT)  USAGE_POLICY.md
-├── CONTRIBUTING.md  CODE_OF_CONDUCT.md  CLAUDE.md  SECURITY.md
-├── docs/  DESIGN.md  adr/  benchmarks/  guides/(recording-tips, colab, mac)
-├── notebooks/train_colab.ipynb
-├── src/cyv/  cli/  daemon/  engines/  tts/  presets/  packs/  watermark/
-├── tests/  (unit tests, plus a golden-audio smoke test on CPU)
-└── .github/  workflows/ (lint, test, notebook-lint)  ISSUE_TEMPLATE/  PULL_REQUEST_TEMPLATE.md
+├── README.md  LICENSE (MIT)  USAGE_POLICY.md  CONTRIBUTING.md  CODE_OF_CONDUCT.md  SECURITY.md  CLAUDE.md
+├── docs/  DESIGN.md  adr/  benchmarks/  guides/ (recording, colab, troubleshooting-mac)
+├── notebooks/  train_colab.ipynb  constraints.txt
+├── src/cyv/        cli/  client/  packs/  dataset/  presets.toml        (thin, no torch)
+├── src/cyvd/       server/  engine_applio/  tts_kokoro/  watermark/     (daemon venv)
+├── tests/          unit, pack-import fuzz (zip-slip, bad pickles), CPU smoke test
+├── uv.lock
+└── .github/        workflows/ (ruff, pytest macos-14, notebook lint)  ISSUE_TEMPLATE/  PULL_REQUEST_TEMPLATE.md
 ```
 
-Weights and voices are **never** committed. Default pretrains download from Hugging Face, pinned by sha256.
+Weights and voices are never committed.
 
-## 8. Contribution model (hybrid human + AI agents)
+## 8. Contribution model
 
-- `CLAUDE.md` / `AGENTS.md` describe the conventions, so agent-assisted PRs (Haiku for triage, docs and lint fixes; Sonnet for features and review) match human ones.
-- Plug-ins live in-tree under `contrib/` until they are stable, then they can move to their own repos.
-- Labels: `good-first-issue`, `engine`, `tts`, `platform:mac`, `platform:win`, `benchmark`.
-- Every engine or TTS PR must ship a license declaration and a CPU smoke test.
+- `CLAUDE.md` documents the conventions, so agent-assisted and human PRs look alike.
+- Every PR runs ruff and tests. PRs that touch the engine or TTS include a benchmark entry. A new dependency needs its license recorded in `docs/licenses.md`.
+- Labels: `good-first-issue`, `preset`, `docs`, `benchmark`, `notebook`, `security`.
 
 ## 9. Milestones
 
-- **M0 – Design sign-off** (this doc plus ADR-001 for no Rust and ADR-002 for the voice pack format).
-- **M1 – Benchmarks B1–B4** on Colab T4 and an M1 Air; record the results in `docs/benchmarks/`.
-- **M2 – MVP:** the Colab notebook, the voice pack, `cyvd` with applio-rvc and kokoro, the `cyv` CLI, and the 3 presets.
-- **M3 – Safety:** the consent gate, the watermark, and the usage policy.
-- **M4 – Community:** the plug-in API frozen at v0, the contribution docs, and the first external engine.
+- **M0:** design sign-off and ADR-001…003.
+- **M1:** spikes B0–B5. Then revise this doc with the measured numbers.
+- **M2:** MVP covering the full journey, plus hardened import, watermark and usage policy.
+- **M3:** watermark detect, Drive download helper, more presets and languages.
+- **M4:** plug-in entry points once a second TTS or engine exists (edge-tts opt-in is the likely first).
 
-## 10. Open questions (need your call)
+## 10. Risks
 
-1. **License**: Apache-2.0 (explicit patent grant) or MIT (matches Applio)?
-2. **Default text-to-speech backend**: offline Kokoro, with Edge-TTS opt-in? Or Edge-TTS default for quality/languages?
-3. **Watermark on by default**, with an opt-out flag or with no opt-out?
-4. **Transport**: is a unix socket by default OK? Or do you want plain HTTP so video editors/Shortcuts can call it?
-5. **Scope of v1 platforms**: Mac-only first, or Mac + Linux/NVIDIA from day one?
-6. **"Hybrid"**: does this mean cloud + local (as assumed), human + AI contributors, or both?
+| Risk | Mitigation |
+|---|---|
+| Applio + Kokoro can't be installed together on a clean Mac | B0 first; two-venv fallback |
+| Colab free-tier or policy changes | NoUI path, pinned constraints, `Trainer` boundary for Kaggle/RunPod later |
+| Applio upstream churn (maintenance mode) | Pinned commit; MIT allows vendoring |
+| M1 MPS bug on macOS 26 | B3; per-component CPU fallback; `doctor` detection |
+| A malicious community pack | §6.1 sandboxed sanitize + zip hygiene |
+| espeak-ng GPL via Kokoro | Runtime pip dependency only; no bundled wheelhouse; documented in `docs/licenses.md` |
+| 8 GB memory pressure | One warm voice, idle exit, B2 |
+| Poor datasets lead to bad clones and churn | `dataset prepare` checks, notebook self-test, recording guide |
