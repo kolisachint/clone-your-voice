@@ -50,7 +50,10 @@ class EngineError(RuntimeError):
 @contextlib.contextmanager
 def _chdir(path: Path) -> Iterator[None]:
     with _cwd_lock:
-        old = os.getcwd()
+        try:
+            old = os.getcwd()
+        except OSError:  # cwd was deleted under us
+            old = "/"
         os.chdir(path)
         try:
             yield
@@ -60,7 +63,8 @@ def _chdir(path: Path) -> Iterator[None]:
 
 def applio_dir() -> Path:
     override = os.environ.get("CYV_APPLIO_DIR")
-    return Path(override).expanduser() if override else paths.home() / "applio"
+    # Always absolute: the engine chdirs into this directory, so a relative path would break.
+    return Path(override).expanduser().resolve() if override else paths.home() / "applio"
 
 
 def _auto_device() -> str:
@@ -82,14 +86,14 @@ class _IndexCache:
 
     def __init__(self, faiss_module: Any) -> None:
         self._faiss = faiss_module
-        self._cache: dict[tuple[str, int], Any] = {}
+        self._cache: dict[tuple[str, int, int], Any] = {}
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._faiss, name)
 
     def read_index(self, path: str) -> Any:
         st = os.stat(path)
-        key = (path, st.st_mtime_ns)
+        key = (path, st.st_mtime_ns, st.st_size)
         if key not in self._cache:
             self._cache.clear()
             self._cache[key] = _CachedIndex(self._faiss.read_index(path))
@@ -113,10 +117,10 @@ class _CachedIndex:
 class ApplioEngine:
     def __init__(self, models_dir: Path, device: str | None = None) -> None:
         os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
-        self._models_dir = Path(models_dir)
+        self._models_dir = Path(models_dir).expanduser().resolve()
         self._device = device or _auto_device()
         self._root = applio_dir()
-        self._voice_key: tuple[str, int] | None = None
+        self._voice_key: tuple[Any, ...] | None = None
         self._index_path = ""
         self._converter: Any = None
         self._embedder_loaded = False
@@ -168,8 +172,13 @@ class ApplioEngine:
             self._converter = infer.VoiceConverter(config=config)
         return self._converter
 
+    def unload(self) -> None:
+        """Forget the loaded voice so the next ``load`` re-reads model and index."""
+        self._voice_key = None
+        self._index_path = ""
+
     def load(self, voice_dir: Path) -> None:
-        voice_dir = Path(voice_dir)
+        voice_dir = Path(voice_dir).expanduser().resolve()
         model, index, manifest = (
             voice_dir / "model.pth",
             voice_dir / "model.index",
@@ -184,7 +193,15 @@ class ApplioEngine:
         if meta.get("embedder") != EMBEDDER or meta.get("f0_method") != F0_METHOD:
             raise EngineError(f"unsupported embedder/f0_method in {manifest}")
 
-        key = (str(model.resolve()), model.stat().st_mtime_ns)
+        ms, ix = model.stat(), index.stat()
+        key = (
+            str(model.resolve()),
+            ms.st_mtime_ns,
+            ms.st_size,
+            str(index.resolve()),
+            ix.st_mtime_ns,
+            ix.st_size,
+        )
         if key == self._voice_key:
             return
         conv = self._ensure_converter()

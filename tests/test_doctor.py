@@ -23,3 +23,22 @@ def test_checks_structure():
     assert checks["Applio pin"].ok is False
     assert checks["MPS"].ok is None
     assert checks["python"].ok is True
+
+
+def test_daemon_check_uses_running_flag(monkeypatch):
+    import sys
+    import types
+
+    mod = types.ModuleType("cyv.client")
+    state = {"running": False}
+
+    class C:
+        def status(self):
+            return dict(state)
+
+    mod.Client = C
+    monkeypatch.setitem(sys.modules, "cyv.client", mod)
+    assert "not running" in doctor._daemon().detail
+    state.update(running=True, device="cpu")
+    c = doctor._daemon()
+    assert c.ok is True and c.detail.startswith("running") and "cpu" in c.detail

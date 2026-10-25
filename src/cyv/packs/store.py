@@ -15,10 +15,11 @@ class VoiceInfo:
     name: str
     dir: Path
     manifest: dict
+    warnings: tuple[str, ...] = ()
 
 
 def _check_name(name: str) -> None:
-    if not NAME_RE.match(name):
+    if not NAME_RE.fullmatch(name):
         raise PackError(f"invalid voice name {name!r}")
 
 
@@ -46,7 +47,7 @@ def get_default() -> str | None:
         name = _default_file().read_text(encoding="utf-8").strip()
     except OSError:
         return None
-    return name if NAME_RE.match(name) and (paths.voices_dir() / name).is_dir() else None
+    return name if NAME_RE.fullmatch(name) and (paths.voices_dir() / name).is_dir() else None
 
 
 def set_default(name: str) -> None:

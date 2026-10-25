@@ -36,6 +36,9 @@ class FakeEngine:
     def load(self, voice_dir: Path) -> None:
         self.voice_dir = voice_dir
 
+    def unload(self) -> None:
+        self.voice_dir = None
+
     def convert(self, audio: Audio, pitch: int) -> Audio:
         _delay()
         return audio

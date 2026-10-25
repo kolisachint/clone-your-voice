@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,6 +55,7 @@ class Pipeline:
         self.message = message
         self.lenient = lenient_voices
         self.loaded: str | None = None
+        self._loaded_key: tuple[Any, ...] | None = None
 
     @property
     def device(self) -> str:
@@ -76,6 +78,8 @@ class Pipeline:
         try:
             meta = json.loads((d / "voice.json").read_text())
         except (OSError, ValueError):
+            if self.loaded == name:
+                self._unload()  # removed on disk: never serve it from memory
             if not self.lenient:
                 raise RequestError("voice_not_found", f"voice '{name}' is not installed") from None
         base = meta.get("tts_base") or {}
@@ -87,10 +91,35 @@ class Pipeline:
             pitch_shift=int(meta.get("pitch_shift", 0)),
         )
 
+    @staticmethod
+    def _sig(f: Path) -> tuple[int, int] | None:
+        try:
+            st = os.stat(f)
+        except OSError:
+            return None
+        return (st.st_mtime_ns, st.st_size)
+
+    def _voice_key(self, cfg: VoiceConfig) -> tuple[Any, ...]:
+        d = cfg.directory
+        return (cfg.name, self._sig(d / "model.pth"), self._sig(d / "model.index"))
+
+    def _unload(self) -> None:
+        self.loaded = None
+        self._loaded_key = None
+        unload = getattr(self.engine, "unload", None)
+        if callable(unload):
+            unload()
+
     def load(self, cfg: VoiceConfig) -> None:
-        if self.loaded != cfg.name:
-            self.engine.load(cfg.directory)
-            self.loaded = cfg.name
+        """Load the voice; reload model and index together if the name or files changed."""
+        key = self._voice_key(cfg)
+        if self.loaded == cfg.name and self._loaded_key == key:
+            return
+        self.loaded = None
+        self._loaded_key = None
+        self.engine.load(cfg.directory)
+        self.loaded = cfg.name
+        self._loaded_key = key
 
     def _finish(self, audio: Audio, watermark: bool) -> bytes:
         if watermark:
@@ -111,9 +140,14 @@ class Pipeline:
         return self._finish(out, watermark)
 
     def reload(self, voice: str | None) -> None:
-        cfg = self.resolve_voice(voice)
-        self.loaded = None
-        self.load(cfg)
+        """Unload the cached voice (safe when nothing is loaded).
+
+        With a voice name, also load it now (errors if it is not installed). Without one
+        nothing is preloaded: the next request loads whatever it asks for.
+        """
+        self._unload()
+        if voice is not None:
+            self.load(self.resolve_voice(voice))
 
 
 def build_pipeline(fake: bool) -> Pipeline:

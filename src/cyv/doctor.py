@@ -97,7 +97,10 @@ def _daemon() -> Check:
         status = Client().status()
     except Exception:
         return Check("daemon", None, "not running (starts on demand)", "cyv serve")
-    return Check("daemon", True, f"running {status}" if status else "running")
+    if not status.get("running"):
+        return Check("daemon", None, "not running (starts on demand)", "cyv serve")
+    info = {k: v for k, v in status.items() if k != "running"}
+    return Check("daemon", True, f"running {info}" if info else "running")
 
 
 def run_checks() -> list[Check]:

@@ -11,7 +11,8 @@ _MAX_SOCK_PATH = 100
 
 
 def home() -> Path:
-    return Path(os.environ.get("CYV_HOME", Path.home() / ".cyv")).expanduser()
+    """CYV_HOME as an absolute, resolved path (the engine chdirs, so never relative)."""
+    return Path(os.environ.get("CYV_HOME") or Path.home() / ".cyv").expanduser().resolve()
 
 
 def voices_dir() -> Path:

@@ -101,6 +101,8 @@ def build_pack(
 @pytest.fixture(autouse=True)
 def cyv_home(tmp_path, monkeypatch):
     monkeypatch.setenv("CYV_HOME", str(tmp_path / "home"))
+    # Test-only: the fixture index is a placeholder, and .venv has no faiss.
+    monkeypatch.setenv("CYV_SANITIZE_SKIP_INDEX", "1")
     return tmp_path / "home"
 
 
@@ -122,7 +124,7 @@ def test_happy_path(zpath):
     info = do_import(build_pack(zpath))
     assert info.name == "alice" and info.dir == paths.voices_dir() / "alice"
     assert {p.name for p in info.dir.iterdir()} == {
-        "model.pth", "model.index", "voice.json", "consent.json",
+        "model.pth", "model.index", "voice.json", "consent.json", "installed.json",
     }  # fmt: skip
     ck = torch.load(info.dir / "model.pth", weights_only=True)
     assert ck["version"] == "v2" and ck["config"][-1] == 40000
@@ -377,3 +379,153 @@ def test_cyv_packs_does_not_import_torch():
 
     code = "import sys, cyv.packs; assert 'torch' not in sys.modules"
     subprocess.run([sys.executable, "-I", "-c", code], check=True)
+
+
+def test_regexes_reject_trailing_newline():
+    from cyv.packs import store
+
+    man = manifest_for(b"a", b"b")
+    for mutate in (
+        lambda m: m.update(name="foo\n"),
+        lambda m: m.update(engine_version="c817f1f\n"),
+        lambda m: m["tts_base"].update(voice="af_heart\n"),
+        lambda m: m["tts_base"].update(lang="a\n"),
+        lambda m: m["sha256"].update({"model.pth": "0" * 64 + "\n"}),
+    ):
+        bad = copy.deepcopy(man)
+        mutate(bad)
+        with pytest.raises(PackError):
+            packs.validate_manifest(bad)
+    with pytest.raises(PackError):
+        store._check_name("foo\n")
+
+
+def test_deeply_nested_json(zpath):
+    deep = b"[" * 100000 + b"]" * 100000
+    pth = torch_bytes(applio_ckpt())
+    with zipfile.ZipFile(zpath, "w") as zf:
+        zf.writestr("model.pth", pth)
+        zf.writestr("model.index", b"I")
+        zf.writestr("voice.json", deep)
+        zf.writestr("consent.json", json.dumps(CONSENT))
+    with pytest.raises(PackError):
+        do_import(zpath)
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [("version", "v1"), ("sr", 32000), ("sr", "48k"), ("f0", 0),
+     ("vocoder", "RefineGAN"), ("embedder_model", "hubert")],
+)  # fmt: skip
+def test_checkpoint_manifest_mismatch(zpath, key, value):
+    ck = applio_ckpt()
+    ck[key] = value
+    with pytest.raises(PackError, match="rejected"):
+        do_import(build_pack(zpath, pth=torch_bytes(ck)))
+    assert packs.list_voices() == []
+
+
+def test_sr_string_accepted(zpath):
+    ck = applio_ckpt()
+    ck["sr"] = "40k"
+    assert do_import(build_pack(zpath, pth=torch_bytes(ck))).name == "alice"
+
+
+def test_installed_json(zpath):
+    info = do_import(build_pack(zpath))
+    inst = json.loads((info.dir / "installed.json").read_text())
+    assert set(inst) == {"sanitized_sha256", "source_sha256", "imported_at"}
+    for m in ("model.pth", "model.index"):
+        got = hashlib.sha256((info.dir / m).read_bytes()).hexdigest()
+        assert inst["sanitized_sha256"][m] == got
+    assert inst["source_sha256"] == packs.load_manifest(info.dir)["sha256"]
+    assert info.warnings == ()
+
+
+def test_engine_version_mismatch_warns(zpath):
+    pth = torch_bytes(applio_ckpt())
+    man = manifest_for(pth, b"INDEX")
+    man["engine_version"] = "deadbeef"
+    info = do_import(build_pack(zpath, pth=pth, manifest=man))
+    assert info.warnings and "deadbeef" in info.warnings[0]
+
+
+def test_stale_import_dirs_cleaned(zpath):
+    root = paths.ensure_private_dir(paths.voices_dir())
+    old, fresh = root / ".import-old", root / ".import-new"
+    for d in (old, fresh):
+        d.mkdir()
+        (d / "x").write_text("x")
+    t = os.stat(old).st_mtime - 7200
+    os.utime(old, (t, t))
+    do_import(build_pack(zpath))
+    assert not old.exists() and fresh.exists()
+
+
+def test_target_appears_before_rename(zpath, monkeypatch):
+    from cyv.packs import importer
+
+    real = importer._sanitize
+
+    def racing(tmp, py):
+        real(tmp, py)
+        (paths.voices_dir() / "alice").mkdir()
+        (paths.voices_dir() / "alice" / "f").write_text("x")
+
+    monkeypatch.setattr(importer, "_sanitize", racing)
+    with pytest.raises(PackError, match="cannot install"):
+        do_import(build_pack(zpath))
+
+
+def test_oversized_index_rejected(zpath, monkeypatch):
+    from cyvd import sanitize as san
+
+    monkeypatch.setattr(san, "MAX_INDEX_FILE", 3)
+    with pytest.raises(san.SanitizeError, match="too large"):
+        p = zpath.parent / "i.bin"
+        p.write_bytes(b"12345")
+        san.sanitize_index(p, zpath.parent / "o.bin")
+
+
+def test_index_validation_without_skip(zpath, monkeypatch):
+    """Without the test-only skip, a non-faiss index must be refused (or faiss missing)."""
+    monkeypatch.delenv("CYV_SANITIZE_SKIP_INDEX")
+    with pytest.raises(PackError, match="rejected"):
+        do_import(build_pack(zpath))
+
+
+def test_index_validation_with_faiss(tmp_path, monkeypatch):
+    monkeypatch.delenv("CYV_SANITIZE_SKIP_INDEX")
+    faiss = pytest.importorskip("faiss")
+    np = pytest.importorskip("numpy")
+    from cyvd import sanitize as san
+
+    def write(d, kind="flat"):
+        idx = faiss.IndexFlatL2(d)
+        idx.add(np.zeros((3, d), dtype="float32"))
+        p = tmp_path / f"{kind}{d}.index"
+        faiss.write_index(idx, str(p))
+        return p
+
+    good = write(768)
+    out = tmp_path / "out.index"
+    san.sanitize_index(good, out)
+    assert faiss.read_index(str(out)).ntotal == 3
+    with pytest.raises(san.SanitizeError, match="dimension"):
+        san.sanitize_index(write(64), tmp_path / "o2")
+    hnsw = tmp_path / "hnsw.index"
+    faiss.write_index(faiss.IndexHNSWFlat(768, 8), str(hnsw))
+    with pytest.raises(san.SanitizeError, match="not allowed"):
+        san.sanitize_index(hnsw, tmp_path / "o3")
+    junk = tmp_path / "junk.index"
+    junk.write_bytes(b"not faiss")
+    with pytest.raises(san.SanitizeError):
+        san.sanitize_index(junk, tmp_path / "o4")
+
+
+def test_old_torch_refused(monkeypatch):
+    from cyvd import sanitize as san
+
+    monkeypatch.setattr(san.torch, "__version__", "2.5.1")
+    with pytest.raises(san.SanitizeError, match="too old"):
+        san._check_torch_version()

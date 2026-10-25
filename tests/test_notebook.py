@@ -381,3 +381,29 @@ def test_analyze_pcm16(tmp_path):
     p = tmp_path / "pcm.wav"
     p.write_bytes(_wav_bytes(1.5, sr=16000, value=8000))
     assert cyv_colab.analyze_wav(p)["checks"]["readable"][0]
+
+
+# ------------------------------------------------------------------ pinned helper hashes
+
+
+def test_embedded_helper_hashes_match_files(nb):
+    import hashlib
+
+    text = "\n".join(_code(nb))
+    block = re.search(r"HELPER_SHA256\s*=\s*\{(.*?)\}", text, re.S).group(1)
+    embedded = dict(re.findall(r'"([\w.]+)":\s*"([0-9a-f]{64})"', block))
+    assert set(embedded) == {"cyv_colab.py", "constraints.txt"}
+    for name, digest in embedded.items():
+        actual = hashlib.sha256((NB_DIR / name).read_bytes()).hexdigest()
+        assert digest == actual, f"update HELPER_SHA256[{name!r}] in train_colab.ipynb to {actual}"
+
+
+def test_install_cell_fails_closed_on_hash_mismatch(nb):
+    text = "\n".join(_code(nb))
+    assert "hashlib.sha256(blob)" in text and "Refusing to run" in text
+
+
+def test_cleanup_cell_removes_selftest_and_features(nb):
+    cell = next(s for s in _code(nb) if "YES_DELETE_MY_DATASET" in s)
+    for needle in ("selftest_output.wav", "selftest_input.wav", '"extracted"', '"f0"', "_meta"):
+        assert needle in cell

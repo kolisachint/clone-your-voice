@@ -1,3 +1,5 @@
 # Applied to every `uv pip install` into the daemon venv by `cyv setup`.
 # preshed 3.0.14 (pulled in via misaki -> spaCy) breaks en_core_web_sm with an OverflowError.
 preshed==3.0.9
+# torch < 2.6 had an RCE in torch.load(weights_only=True), which the pack sanitizer relies on.
+torch>=2.6

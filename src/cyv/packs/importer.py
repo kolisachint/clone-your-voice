@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
 import sys
 import tempfile
+import time
 import zipfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 from cyv import paths
@@ -27,6 +31,34 @@ MAX_MEMBER = {
 }
 SANITIZE_TIMEOUT = 300
 _CHUNK = 1 << 20
+STALE_TMP_SECONDS = 3600
+_PIN_RE = re.compile(r"^APPLIO_COMMIT\s*=\s*[\"']([0-9a-f]{7,40})[\"']", re.M)
+
+
+def _pinned_commit() -> str | None:
+    """Read APPLIO_COMMIT from cyvd's pin.py as text (importing cyvd.engine_applio pulls in the
+    engine). Returns None if cyvd is not installed next to cyv."""
+    try:
+        spec = importlib.util.find_spec("cyvd")  # runs only cyvd/__init__.py
+        roots = list(spec.submodule_search_locations or []) if spec else []
+        for root in roots:
+            pin = Path(root) / "engine_applio" / "pin.py"
+            if pin.is_file():
+                m = _PIN_RE.search(pin.read_text(encoding="utf-8"))
+                return m.group(1) if m else None
+    except (ImportError, ValueError, OSError):
+        pass
+    return None
+
+
+def _clean_stale(voices: Path) -> None:
+    cutoff = time.time() - STALE_TMP_SECONDS
+    for d in voices.glob(".import-*"):
+        try:
+            if d.is_dir() and not d.is_symlink() and d.stat().st_mtime < cutoff:
+                shutil.rmtree(d, ignore_errors=True)
+        except OSError:
+            continue
 
 
 def _check_infos(zf: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
@@ -81,13 +113,28 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def _sanitize(src: Path, dst: Path, daemon_python: Path | None) -> None:
+def _sanitize(tmp: Path, daemon_python: Path | None) -> None:
+    """Rewrite tmp/model.pth and tmp/model.index in place via the sandboxed sanitizer."""
     py = Path(daemon_python) if daemon_python else paths.venv_dir() / "bin" / "python"
     if not py.exists():
         raise PackError(f"daemon python not found at {py}; run `cyv setup` first")
+    pth_out, idx_out = tmp / "model.sanitized", tmp / "model.index.sanitized"
     try:
         proc = subprocess.run(
-            [str(py), "-I", "-m", "cyvd.sanitize", str(src), str(dst)],
+            [
+                str(py),
+                "-I",
+                "-m",
+                "cyvd.sanitize",
+                str(tmp / "model.pth"),
+                str(pth_out),
+                "--manifest",
+                str(tmp / "voice.json"),
+                "--index",
+                str(tmp / "model.index"),
+                "--index-out",
+                str(idx_out),
+            ],  # fmt: skip
             capture_output=True,
             text=True,
             timeout=SANITIZE_TIMEOUT,
@@ -96,14 +143,17 @@ def _sanitize(src: Path, dst: Path, daemon_python: Path | None) -> None:
         )
     except subprocess.TimeoutExpired as exc:
         raise PackError("sanitizing model.pth timed out") from exc
-    if proc.returncode != 0 or not dst.is_file():
+    if proc.returncode != 0 or not pth_out.is_file() or not idx_out.is_file():
         msg = (proc.stderr or "").strip().splitlines()
-        raise PackError(f"model.pth rejected: {msg[-1] if msg else 'sanitizer failed'}")
+        raise PackError(f"model rejected: {msg[-1] if msg else 'sanitizer failed'}")
+    os.replace(pth_out, tmp / "model.pth")
+    os.replace(idx_out, tmp / "model.index")
 
 
 def import_pack(path: Path, *, daemon_python: Path | None = None, force: bool = False) -> VoiceInfo:
     path = Path(path)
     voices = paths.ensure_private_dir(paths.voices_dir())
+    _clean_stale(voices)
     tmp = Path(tempfile.mkdtemp(prefix=".import-", dir=voices))
     try:
         try:
@@ -114,35 +164,55 @@ def import_pack(path: Path, *, daemon_python: Path | None = None, force: bool = 
         manifest = load_manifest(tmp)
         try:
             validate_consent(json.loads((tmp / "consent.json").read_text(encoding="utf-8")))
-        except ValueError as exc:
+        except (ValueError, RecursionError) as exc:
             raise PackError(f"consent.json is not valid JSON: {exc}") from exc
         name = manifest["name"]
-        if not NAME_RE.match(name):
+        if not NAME_RE.fullmatch(name):
             raise PackError(f"invalid voice name {name!r}")
+        source = {}
         for member, want in manifest["sha256"].items():
-            if _sha256(tmp / member) != want:
+            source[member] = _sha256(tmp / member)
+            if source[member] != want:
                 raise PackError(f"sha256 mismatch for {member}")
+        warnings: list[str] = []
+        pin = _pinned_commit()
+        ev = manifest["engine_version"]
+        if pin and not (pin.startswith(ev) or ev.startswith(pin)):
+            warnings.append(
+                f"pack was trained with Applio {ev[:12]}, this cyv uses {pin[:12]}; "
+                "the voice may sound different"
+            )
         target = voices / name
-        if target.exists() and not force:
+        replacing = target.exists()
+        if replacing and not force:
             raise PackError(f"voice {name!r} already exists (use --force to replace)")
-        clean = tmp / "model.sanitized"
-        _sanitize(tmp / "model.pth", clean, daemon_python)
-        os.replace(clean, tmp / "model.pth")
+        _sanitize(tmp, daemon_python)
+        installed = {
+            "sanitized_sha256": {m: _sha256(tmp / m) for m in ("model.pth", "model.index")},
+            "source_sha256": source,
+            "imported_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        }
+        (tmp / "installed.json").write_text(
+            json.dumps(installed, indent=2) + "\n", encoding="utf-8"
+        )
         for f in tmp.iterdir():
             os.chmod(f, 0o600)
         os.chmod(tmp, 0o700)
-        if target.exists():
-            old = voices / f".old-{name}-{os.getpid()}"
-            os.rename(target, old)
-            try:
+        try:
+            if replacing:
+                old = voices / f".old-{name}-{os.getpid()}"
+                os.rename(target, old)
+                try:
+                    os.rename(tmp, target)
+                except OSError:
+                    os.rename(old, target)
+                    raise
+                shutil.rmtree(old, ignore_errors=True)
+            else:
                 os.rename(tmp, target)
-            except OSError:
-                os.rename(old, target)
-                raise
-            shutil.rmtree(old, ignore_errors=True)
-        else:
-            os.rename(tmp, target)
-        return VoiceInfo(name=name, dir=target, manifest=manifest)
+        except OSError as exc:
+            raise PackError(f"cannot install voice {name!r}: {exc}") from exc
+        return VoiceInfo(name=name, dir=target, manifest=manifest, warnings=tuple(warnings))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

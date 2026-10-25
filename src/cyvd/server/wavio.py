@@ -40,9 +40,15 @@ def decode_wav(data: bytes) -> Audio:
         raise WavError(f"invalid WAV: {e}") from e
     if width != 2:
         raise WavError("only 16-bit PCM WAV is supported")
+    if rate <= 0 or channels <= 0:
+        raise WavError("invalid WAV header")
+    if n == 0 or not raw:
+        raise WavError("audio is empty")
     x = np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
     if channels > 1:
         x = x[: len(x) // channels * channels].reshape(-1, channels).mean(axis=1)
+    if x.size == 0:
+        raise WavError("audio is empty")
     return Audio(np.ascontiguousarray(x, dtype=np.float32), rate)
 
 

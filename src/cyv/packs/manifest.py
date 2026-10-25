@@ -44,7 +44,7 @@ def _is_num(v: Any) -> bool:
 
 def _pattern(obj: dict, key: str, rx: re.Pattern[str], where: str) -> None:
     v = obj[key]
-    if not isinstance(v, str) or not rx.match(v):
+    if not isinstance(v, str) or not rx.fullmatch(v):
         raise PackError(f"{where}{key}: invalid value {v!r}")
 
 
@@ -113,7 +113,10 @@ def load_manifest(voice_dir: Path) -> dict:
     path = Path(voice_dir) / "voice.json"
     try:
         obj = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, RecursionError) as exc:
         raise PackError(f"cannot read {path}: {exc}") from exc
-    validate_manifest(obj)
+    try:
+        validate_manifest(obj)
+    except RecursionError as exc:
+        raise PackError("voice.json is nested too deeply") from exc
     return obj

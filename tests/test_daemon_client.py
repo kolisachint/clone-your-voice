@@ -201,3 +201,140 @@ def test_missing_daemon_command_is_readable(
     monkeypatch.setenv("CYV_DAEMON_CMD", "/nonexistent/python -m cyvd.server.main")
     with pytest.raises(DaemonError, match="cyv setup"):
         Client().health()
+
+
+# --- review-fix regressions ---------------------------------------------------
+
+
+def test_convert_bad_voice_with_audio_reports_bad_voice(daemon_env: Callable[..., None]) -> None:
+    c = Client()
+    c.ensure_daemon()
+    pid = int(paths.pid_path().read_text())
+    big = make_wav(n=8_000_000)  # large enough to overflow socket buffers
+    for _ in range(3):
+        with pytest.raises(DaemonError) as ei:
+            c.convert(big, voice="UPPER")
+        assert ei.value.code == "bad_voice"
+    with pytest.raises(DaemonError) as ei:
+        c.convert(big, pitch=999)
+    assert ei.value.code == "bad_request"
+    assert int(paths.pid_path().read_text()) == pid  # never respawned
+
+
+def test_client_reads_error_reply_after_send_failure(
+    cyv_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        Client, "ensure_daemon", lambda self, timeout=60.0: setattr(self, "_verified", True)
+    )
+    """A server that replies and closes without reading the upload must not look like a crash."""
+    paths.ensure_private_dir(paths.run_dir())
+    srv = socket.socket(socket.AF_UNIX)
+    srv.bind(str(paths.socket_path()))
+    srv.listen(4)
+    accepted = []
+
+    def serve() -> None:
+        conn, _ = srv.accept()
+        accepted.append(1)
+        protocol.recv_json(conn)
+        conn.sendall(protocol.encode_json({"ok": False, "error": "nope", "code": "bad_voice"}))
+        conn.close()
+
+    t = threading.Thread(target=serve)
+    t.start()
+    try:
+        with pytest.raises(DaemonError) as ei:
+            Client()._request({"op": "convert"}, b"x" * (64 << 20))
+        assert ei.value.code == "bad_voice"
+    finally:
+        t.join(10)
+        srv.close()
+    assert accepted == [1]  # no retry
+
+
+def test_empty_and_zero_length_audio_is_bad_audio(daemon_env: Callable[..., None]) -> None:
+    c = Client()
+    with pytest.raises(DaemonError) as ei:
+        c.convert(b"")
+    assert ei.value.code == "bad_audio"
+    with pytest.raises(DaemonError) as ei:
+        c.convert(make_wav(n=0))
+    assert ei.value.code == "bad_audio"
+    assert c.health()["ok"]
+
+
+def test_stalled_connection_does_not_block_idle_exit(daemon_env: Callable[..., None]) -> None:
+    daemon_env(idle_timeout=0.5)
+    c = Client()
+    pid = c.health()["pid"]
+    s = socket.socket(socket.AF_UNIX)
+    s.connect(str(paths.socket_path()))  # never sends anything
+    try:
+        assert wait_for(lambda: not pid_alive(pid), 10)
+    finally:
+        s.close()
+
+
+def test_header_timeout_replies_and_releases(
+    cyv_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import asyncio
+
+    from cyvd.server import main as dmain
+
+    monkeypatch.setattr(dmain, "HEADER_TIMEOUT", 0.2)
+
+    async def run() -> None:
+        d = dmain.Daemon(dmain.build_pipeline(True), 60, True)
+        path = str(cyv_home / "t.sock")
+        server = await asyncio.start_unix_server(d.handle, path=path)
+        r, w = await asyncio.open_unix_connection(path)  # stalls: sends nothing
+        hdr = await asyncio.wait_for(protocol.read_json(r), 5)
+        assert hdr["ok"] is False and hdr["code"] == "timeout"
+        assert d.active == 0 and not d.audio_sem.locked()
+        w.close()
+        server.close()
+
+    asyncio.run(run())
+
+
+def test_status_semantics(daemon_env: Callable[..., None]) -> None:
+    c = Client()
+    assert c.status() == {"running": False}
+    c.ensure_daemon()
+    st = c.status()
+    assert st["running"] is True and st["compatible"] is True and st["protocol"] == 1
+
+
+def test_reload_does_not_spawn(daemon_env: Callable[..., None]) -> None:
+    c = Client()
+    c.reload()
+    assert not paths.socket_path().exists() and not paths.pid_path().exists()
+    c.ensure_daemon()
+    c.reload()  # nothing loaded: fine
+    c.say("x")
+    c.reload()
+    assert c.health()["voice"] is None
+
+
+def test_version_mismatch_restarts_daemon(
+    daemon_env: Callable[..., None], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    c = Client()
+    old = c.health()["pid"]
+    monkeypatch.setattr("cyv.client.core.__version__", "9.9.9")
+    # the daemon (0.0.1) now looks stale to this client; it is replaced once, and since the
+    # replacement is the same build the client reports the mismatch instead of looping
+    with pytest.raises(DaemonError, match="does not match"):
+        Client().health()
+    assert wait_for(lambda: not pid_alive(old), 5)
+
+
+def test_relative_cyv_home_is_absolute(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("CYV_HOME", "rel/home")
+    assert paths.home().is_absolute() and paths.home() == (tmp_path / "rel/home").resolve()
+    h = paths.home()
+    monkeypatch.chdir("/")
+    assert h.is_absolute() and h.parent.parent == tmp_path.resolve()

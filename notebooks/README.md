@@ -19,6 +19,6 @@ If Colab disconnects during training, reconnect and run all cells again with the
 
 * `APPLIO_COMMIT` in the install cell must equal `src/cyvd/engine_applio/pin.py` (a test checks this). When you bump the pin, re-check every `core.py` flag used in the notebook and regenerate `constraints.txt` with
   `uv pip compile requirements-engine.txt --python-version 3.12 --python-platform x86_64-manylinux_2_28 --extra-index-url https://download.pytorch.org/whl/cu128 --index-strategy unsafe-best-match`.
-* The install cell downloads `cyv_colab.py` and `constraints.txt` from the `main` branch on GitHub (`CYV_RAW`). Point it at a release tag for stable releases.
+* The install cell downloads `cyv_colab.py` and `constraints.txt` from the `main` branch on GitHub (`CYV_RAW`). Point it at a release tag for stable releases. The cell checks both files against sha256 values embedded in the notebook and refuses to run on a mismatch, so after editing either file, update `HELPER_SHA256` in the install cell (`tests/test_notebook.py` fails until you do).
 * Applio's `core.py` exits 0 even when preprocess/extract/train fail, so the notebook checks for the output files instead of trusting exit codes.
 * Do not commit the notebook with outputs; it contains your Drive paths.

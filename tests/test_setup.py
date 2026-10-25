@@ -94,3 +94,114 @@ def test_download_verify_resume(monkeypatch):
         setup.download_model(bad, progress=lambda s: None)
     assert not setup.model_path(bad).exists()
     srv.shutdown()
+
+
+def _https_to(monkeypatch, url):
+    real = setup.urllib.request.urlopen
+    monkeypatch.setattr(
+        setup.urllib.request,
+        "urlopen",
+        lambda req, timeout=None: real(
+            setup.urllib.request.Request(url, headers=dict(req.header_items())), timeout=timeout
+        ),
+    )
+
+
+class _H416(_Handler):
+    def do_GET(self):
+        rng = self.headers.get("Range")
+        if rng and int(rng.split("=")[1].rstrip("-")) >= len(self.payload):
+            self.send_response(416)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        super().do_GET()
+
+
+def _serve(handler):
+    srv = http.server.HTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv, f"http://127.0.0.1:{srv.server_port}/m"
+
+
+def test_download_416_complete_part_is_verified(monkeypatch):
+    srv, url = _serve(_H416)
+    _https_to(monkeypatch, url)
+    sha = hashlib.sha256(_H416.payload).hexdigest()
+    m = setup.Model("m", "https://x/m", sha, "m.bin")
+    dest = setup.model_path(m)
+    dest.parent.mkdir(parents=True)
+    part = dest.with_name("m.bin.part")
+    part.write_bytes(_H416.payload)
+    setup.download_model(m, progress=lambda s: None)
+    assert dest.read_bytes() == _H416.payload and not part.exists()
+    srv.shutdown()
+
+
+def test_download_416_corrupt_part_restarts_once(monkeypatch):
+    srv, url = _serve(_H416)
+    _https_to(monkeypatch, url)
+    sha = hashlib.sha256(_H416.payload).hexdigest()
+    m = setup.Model("m", "https://x/m", sha, "m.bin")
+    dest = setup.model_path(m)
+    dest.parent.mkdir(parents=True)
+    dest.with_name("m.bin.part").write_bytes(b"x" * len(_H416.payload))  # same size, wrong bytes
+    setup.download_model(m, progress=lambda s: None)
+    assert dest.read_bytes() == _H416.payload
+    srv.shutdown()
+
+
+def test_download_enforces_size_bytes(monkeypatch):
+    srv, url = _serve(_Handler)
+    _https_to(monkeypatch, url)
+    sha = hashlib.sha256(_Handler.payload).hexdigest()
+    m = setup.Model("m", "https://x/m", sha, "m.bin", size_bytes=len(_Handler.payload) - 10)
+    with pytest.raises(setup.SetupError, match="exceeded"):
+        setup.download_model(m, progress=lambda s: None)
+    assert not setup.model_path(m).exists()
+    assert not setup.model_path(m).with_name("m.bin.part").exists()
+    srv.shutdown()
+
+
+def test_download_network_errors_are_setup_errors(monkeypatch):
+    import urllib.error
+
+    m = setup.Model("m", "https://x/m", "0" * 64, "m.bin")
+
+    def http404(req, timeout=None):
+        raise urllib.error.HTTPError(req.full_url, 404, "nf", {}, None)
+
+    monkeypatch.setattr(setup.urllib.request, "urlopen", http404)
+    with pytest.raises(setup.SetupError, match="HTTP 404"):
+        setup.download_model(m)
+
+    def dns(req, timeout=None):
+        raise urllib.error.URLError("name resolution failed")
+
+    monkeypatch.setattr(setup.urllib.request, "urlopen", dns)
+    with pytest.raises(setup.SetupError, match="name resolution"):
+        setup.download_model(m)
+
+    def slow(req, timeout=None):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(setup.urllib.request, "urlopen", slow)
+    with pytest.raises(setup.SetupError, match="interrupted"):
+        setup.download_model(m)
+
+
+def test_load_models_reads_size_bytes():
+    sizes = [m.size_bytes for m in setup.load_models()]
+    assert sizes and all(isinstance(x, int) and x > 0 for x in sizes)
+
+
+def test_spacy_requirements_are_hash_pinned():
+    lines = [
+        ln
+        for ln in setup.SPACY_REQUIREMENTS.read_text().splitlines()
+        if ln.strip() and not ln.startswith("#")
+    ]
+    assert len(lines) == 1
+    assert lines[0].startswith("en_core_web_sm @ https://") and "--hash=sha256:" in lines[0]
+    step = next(s for s in setup.plan(force=True) if "spaCy" in s.title)
+    assert "--require-hashes" in step.detail and "daemon-spacy.txt" in step.detail

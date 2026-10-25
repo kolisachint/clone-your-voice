@@ -9,6 +9,7 @@ import logging
 import os
 import signal
 import socket
+import struct
 import sys
 import time
 from typing import Any
@@ -23,6 +24,10 @@ log = logging.getLogger("cyvd")
 
 DEFAULT_IDLE_TIMEOUT = 900.0
 MAX_TEXT_CHARS = 20_000
+HEADER_TIMEOUT = 30.0  # seconds to receive a JSON header
+AUDIO_BASE_TIMEOUT = 30.0  # audio frame: base + size / AUDIO_MIN_RATE
+AUDIO_MIN_RATE = 1 << 20  # bytes/s a client must sustain
+MAX_BUFFERED_AUDIO = 2  # concurrent convert requests holding an audio frame in memory
 
 
 class Daemon:
@@ -32,7 +37,8 @@ class Daemon:
         self.keep_alive = keep_alive
         self.started = time.monotonic()
         self.last_activity = time.monotonic()
-        self.active = 0  # connections being served (queued or running)
+        self.active = 0  # requests doing actual work (queued for or running on the worker)
+        self.audio_sem = asyncio.Semaphore(MAX_BUFFERED_AUDIO)
         self.work_lock = asyncio.Lock()  # serializes GPU work
         self.stop = asyncio.Event()
         self.uid = os.getuid()
@@ -40,7 +46,6 @@ class Daemon:
     # --- connection handling -------------------------------------------------
 
     async def handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-        self.active += 1
         shutdown = False
         try:
             sock = writer.get_extra_info("socket")
@@ -48,11 +53,13 @@ class Daemon:
                 log.warning("rejected connection from foreign uid")
                 return
             try:
-                req = await protocol.read_json(reader)
+                req = await asyncio.wait_for(protocol.read_json(reader), HEADER_TIMEOUT)
                 header, audio = await self.dispatch(req, reader)
                 shutdown = req.get("op") == "shutdown"
             except RequestError as e:
                 header, audio = {"ok": False, "error": str(e), "code": e.code}, b""
+            except TimeoutError:
+                header, audio = {"ok": False, "error": "request timed out", "code": "timeout"}, b""
             except protocol.ProtocolError as e:
                 header, audio = {"ok": False, "error": str(e), "code": "bad_request"}, b""
             except WavError as e:
@@ -67,21 +74,37 @@ class Daemon:
             writer.write(protocol.encode_json(header))
             if audio:
                 writer.write(protocol.encode_frame(audio))
-            await writer.drain()
-        except (asyncio.IncompleteReadError, ConnectionError):
+            await asyncio.wait_for(writer.drain(), AUDIO_BASE_TIMEOUT + len(audio) / AUDIO_MIN_RATE)
+        except (asyncio.IncompleteReadError, ConnectionError, TimeoutError):
             pass
         finally:
             with contextlib.suppress(Exception):
                 writer.close()
                 await writer.wait_closed()
-            self.active -= 1
             self.last_activity = time.monotonic()
             if shutdown:
                 self.stop.set()
 
     async def run_work(self, fn: Any, *args: Any) -> Any:
-        async with self.work_lock:
-            return await asyncio.get_running_loop().run_in_executor(None, fn, *args)
+        self.active += 1  # only real work counts; idle or stalled sockets never block idle-exit
+        try:
+            async with self.work_lock:
+                return await asyncio.get_running_loop().run_in_executor(None, fn, *args)
+        finally:
+            self.active -= 1
+            self.last_activity = time.monotonic()
+
+    @staticmethod
+    async def read_audio_frame(reader: asyncio.StreamReader) -> bytes:
+        """Read one audio frame with a size-based timeout (the size is known after 4 bytes)."""
+        (n,) = struct.Struct(">I").unpack(
+            await asyncio.wait_for(reader.readexactly(4), HEADER_TIMEOUT)
+        )
+        if n > protocol.MAX_AUDIO_FRAME:
+            raise protocol.ProtocolError(f"frame too large: {n} > {protocol.MAX_AUDIO_FRAME}")
+        return await asyncio.wait_for(
+            reader.readexactly(n), AUDIO_BASE_TIMEOUT + n / AUDIO_MIN_RATE
+        )
 
     async def dispatch(
         self, req: dict[str, Any], reader: asyncio.StreamReader
@@ -102,20 +125,26 @@ class Daemon:
         if op == "reload":
             await self.run_work(self.pipeline.reload, _voice(req))
             return {"ok": True}, b""
-        if op in ("say", "convert"):
+        if op == "say":
             voice, pitch, wm = _voice(req), _pitch(req), _watermark(req)
-            if op == "say":
-                text = req.get("text")
-                if not isinstance(text, str) or not text.strip():
-                    raise RequestError("bad_request", "text must be a non-empty string")
-                if len(text) > MAX_TEXT_CHARS:
-                    raise RequestError("bad_request", f"text longer than {MAX_TEXT_CHARS} chars")
-                wav = await self.run_work(self.pipeline.say, text, voice, pitch, wm)
-            else:
-                n = req.get("audio_bytes")
-                if not isinstance(n, int) or n <= 0:
-                    raise RequestError("bad_request", "convert needs audio_bytes > 0")
-                data = await protocol.read_audio(reader)
+            text = req.get("text")
+            if not isinstance(text, str) or not text.strip():
+                raise RequestError("bad_request", "text must be a non-empty string")
+            if len(text) > MAX_TEXT_CHARS:
+                raise RequestError("bad_request", f"text longer than {MAX_TEXT_CHARS} chars")
+            return {"ok": True}, await self.run_work(self.pipeline.say, text, voice, pitch, wm)
+        if op == "convert":
+            n = req.get("audio_bytes")
+            if isinstance(n, bool) or not isinstance(n, int) or n < 0:
+                raise RequestError("bad_request", "convert needs integer audio_bytes >= 0")
+            async with self.audio_sem:
+                # Always consume the declared frame before replying, even if the request is
+                # about to be rejected: otherwise the client's send fails and it never sees
+                # the error. The read is bounded by MAX_AUDIO_FRAME and the timeouts above.
+                data = await self.read_audio_frame(reader)
+                voice, pitch, wm = _voice(req), _pitch(req), _watermark(req)
+                if not data:
+                    raise WavError("audio is empty")
                 if len(data) != n:
                     raise RequestError("bad_request", "audio_bytes does not match audio frame")
                 wav = await self.run_work(self.pipeline.convert, data, voice, pitch, wm)

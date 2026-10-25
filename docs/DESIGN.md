@@ -262,7 +262,18 @@ Weights and voices are never committed.
 
 ## 11. Implementation status and findings (Oct 2026, Linux x86 CPU)
 
-The Linux-testable parts of M2 are in the repo: the thin CLI, the daemon, hardened import, the components, the Colab notebook, and docs. 214 tests pass. Findings that refine the design:
+The Linux-testable parts of M2 are in the repo: the thin CLI, the daemon, hardened import, the components, the Colab notebook, and docs. 218 tests pass. An independent code review led to these hardening changes:
+
+- `fullmatch` for every name and hash regex.
+- The FAISS index is validated and rewritten inside the sanitize subprocess (type allowlist, d = 768, size caps).
+- The checkpoint is cross-checked against `voice.json`. A torch ≥ 2.6 floor is enforced (because of the `weights_only` RCE in older versions).
+- The daemon reloads a voice when its files change, reads timeouts are bounded, and error replies survive large uploads.
+- On an upgrade, a stale-version daemon is replaced.
+- ffmpeg input goes through `pipe:0` with a protocol whitelist.
+- Downloads enforce sha256 and size. The spaCy wheel is pinned by hash.
+- The notebook verifies the sha256 of its downloaded helpers.
+
+Findings that refine the design:
 
 - **End to end works (Linux CPU):** Kokoro → Applio convert → AudioSeal embed/detect (prob 1.0, exact message; clean audio 0.02–0.05). Peak RSS was **2.9 GB**, which is above the 2.5 GB target, so B2 on an 8 GB M1 is now the key memory question. Timings were measured on a contended CPU and aren't quotable (`docs/benchmarks/linux-cpu-e2e.md`).
 - **B4:** AudioSeal is the default and Perth is the fallback. Both survive the voice-note preset. Perth is more robust to Opus 8 kbps and noise, but quieter (SNR 14.9 dB vs 28.5 dB), carries no payload, and is ~7× cheaper on CPU (`docs/benchmarks/B4-watermark.md`).

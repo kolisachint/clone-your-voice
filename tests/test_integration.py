@@ -47,6 +47,7 @@ def _fake_applio_checkpoint(path: Path) -> None:
 
 def test_prepare_export_import_roundtrip(tmp_path, monkeypatch):
     monkeypatch.setenv("CYV_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("CYV_SANITIZE_SKIP_INDEX", "1")  # test-only: placeholder index, no faiss
     colab = _load_colab()
 
     # 1. cyv dataset prepare

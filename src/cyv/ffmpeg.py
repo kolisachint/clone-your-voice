@@ -35,10 +35,19 @@ def version() -> str | None:
     return out.stdout.splitlines()[0] if out.stdout else None
 
 
-def run(args: Sequence[str], *, timeout: float | None = 600) -> None:
+def run(
+    args: Sequence[str], *, timeout: float | None = 600, stdin_data: bytes | None = None
+) -> None:
     cmd = [find_ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin", "-y", *args]
     try:
-        proc = subprocess.run(cmd, capture_output=True, timeout=timeout, check=False)
+        proc = subprocess.run(
+            cmd,
+            input=stdin_data,
+            stdin=None if stdin_data is not None else subprocess.DEVNULL,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
     except subprocess.TimeoutExpired as e:
         raise FfmpegError("ffmpeg timed out") from e
     if proc.returncode != 0:
@@ -56,9 +65,26 @@ def encode(wav: bytes, preset: Preset) -> bytes:
 
 
 def to_wav(data: bytes) -> bytes:
-    """Transcode any ffmpeg-readable audio to 16-bit PCM WAV (no resampling)."""
+    """Transcode untrusted audio to 16-bit mono PCM WAV (no resampling).
+
+    The input is fed on stdin with only the `pipe` protocol allowed, so a playlist or concat
+    script inside it cannot make ffmpeg open local files or network URLs.
+    """
     with tempfile.TemporaryDirectory(prefix="cyv-") as td:
-        src, dst = Path(td, "in.bin"), Path(td, "out.wav")
-        src.write_bytes(data)
-        run(["-i", str(src), "-vn", "-c:a", "pcm_s16le", str(dst)])
+        dst = Path(td, "out.wav")
+        run(
+            [
+                "-protocol_whitelist",
+                "pipe",
+                "-i",
+                "pipe:0",
+                "-vn",
+                "-ac",
+                "1",
+                "-c:a",
+                "pcm_s16le",
+                str(dst),
+            ],
+            stdin_data=data,
+        )
         return dst.read_bytes()

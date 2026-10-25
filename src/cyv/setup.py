@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import hashlib
+import http.client
 import os
 import platform
 import shutil
 import subprocess
 import sys
 import tomllib
+import urllib.error
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -41,13 +43,12 @@ class Model:
     url: str
     sha256: str
     dest: str
+    size_bytes: int | None = None
 
 
 CONSTRAINTS = Path(__file__).with_name("daemon-constraints.txt")
-SPACY_EN_WHEEL = (
-    "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/"
-    "en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
-)
+# URL + sha256 of the spaCy English wheel; `uv pip install --require-hashes` needs a file.
+SPACY_REQUIREMENTS = Path(__file__).with_name("daemon-spacy.txt")
 
 
 def is_mac_arm64() -> bool:
@@ -84,7 +85,16 @@ def load_models() -> list[Model]:
     models = []
     for it in items:
         try:
-            models.append(Model(it["name"], it["url"], it["sha256"].lower(), it["dest"]))
+            size = it.get("size_bytes")
+            models.append(
+                Model(
+                    it["name"],
+                    it["url"],
+                    it["sha256"].lower(),
+                    it["dest"],
+                    size if isinstance(size, int) and size > 0 else None,
+                )
+            )
         except KeyError as e:
             raise SetupError(f"models.toml entry {it.get('name', '?')!r} lacks {e}") from e
     return models
@@ -111,6 +121,60 @@ def model_ok(m: Model) -> bool:
     return p.is_file() and sha256_file(p) == m.sha256
 
 
+def _fetch_to_part(m: Model, part: Path) -> bool:
+    """Stream into `part`, resuming if possible.
+
+    Returns True when `part` now holds the full file, False when a stale/oversized partial
+    was thrown away and the caller should start over.
+    """
+    have = part.stat().st_size if part.exists() else 0
+    if m.size_bytes is not None and have > m.size_bytes:
+        part.unlink(missing_ok=True)
+        have = 0
+    req = urllib.request.Request(  # noqa: S310
+        m.url, headers={"User-Agent": f"cyv/{cyv.__version__}"}
+    )
+    if have:
+        req.add_header("Range", f"bytes={have}-")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310 (https enforced)
+            resumed = have > 0 and getattr(resp, "status", 200) == 206
+            h = hashlib.sha256()
+            total = 0
+            if resumed:
+                h = hashlib.sha256(part.read_bytes())  # re-hash prefix; models are modest
+                total = have
+            with part.open("ab" if resumed else "wb") as f:
+                while chunk := resp.read(1 << 20):
+                    total += len(chunk)
+                    if m.size_bytes is not None and total > m.size_bytes:
+                        f.close()
+                        part.unlink(missing_ok=True)
+                        raise SetupError(
+                            f"model {m.name!r}: download exceeded the expected "
+                            f"{m.size_bytes} bytes; aborted"
+                        )
+                    f.write(chunk)
+                    h.update(chunk)
+    except urllib.error.HTTPError as e:
+        if e.code == 416 and have:
+            # Range not satisfiable: the .part is probably already complete.
+            if sha256_file(part) == m.sha256:
+                return True
+            part.unlink(missing_ok=True)
+            return False
+        raise SetupError(f"model {m.name!r}: server returned HTTP {e.code} for {m.url}") from e
+    except urllib.error.URLError as e:
+        raise SetupError(
+            f"model {m.name!r}: cannot download ({e.reason}); check your connection and re-run"
+        ) from e
+    except (TimeoutError, OSError, http.client.HTTPException) as e:
+        raise SetupError(
+            f"model {m.name!r}: download interrupted ({e}); re-run `cyv setup` to resume"
+        ) from e
+    return True
+
+
 def download_model(m: Model, *, progress: Callable[[str], None] = print) -> None:
     """Stream to <dest>.part (resuming if possible), verify sha256, rename atomically."""
     if not m.url.startswith("https://"):
@@ -120,23 +184,10 @@ def download_model(m: Model, *, progress: Callable[[str], None] = print) -> None
         return
     dest.parent.mkdir(parents=True, exist_ok=True)
     part = dest.with_name(dest.name + ".part")
-    h = hashlib.sha256()
-    have = part.stat().st_size if part.exists() else 0
-    req = urllib.request.Request(  # noqa: S310
-        m.url, headers={"User-Agent": f"cyv/{cyv.__version__}"}
-    )
-    if have:
-        req.add_header("Range", f"bytes={have}-")
-    with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310 (https enforced above)
-        resumed = have > 0 and getattr(resp, "status", 200) == 206
-        mode = "ab" if resumed else "wb"
-        if resumed:
-            h = hashlib.sha256(part.read_bytes())  # re-hash prefix; models are modest in size
-        with part.open(mode) as f:
-            while chunk := resp.read(1 << 20):
-                f.write(chunk)
-                h.update(chunk)
-    if h.hexdigest() != m.sha256:
+    if not _fetch_to_part(m, part):  # stale partial discarded: restart once from zero
+        if not _fetch_to_part(m, part):
+            raise SetupError(f"model {m.name!r}: could not complete the download")
+    if sha256_file(part) != m.sha256:
         part.unlink(missing_ok=True)
         raise SetupError(f"sha256 mismatch for {m.name}; deleted partial download, retry setup")
     os.replace(part, dest)
@@ -273,8 +324,20 @@ def plan(*, force: bool = False) -> list[Step]:
         # Kokoro's G2P would otherwise pip-install this from GitHub at first use, inside the daemon.
         Step(
             "Install spaCy English model",
-            f"{uv} pip install --python {vpy} {SPACY_EN_WHEEL}",
-            lambda: _run([uv, "pip", "install", "--python", str(vpy), SPACY_EN_WHEEL]),
+            f"{uv} pip install --python {vpy} --require-hashes --no-deps -r {SPACY_REQUIREMENTS}",
+            lambda: _run(
+                [
+                    uv,
+                    "pip",
+                    "install",
+                    "--python",
+                    str(vpy),
+                    "--require-hashes",
+                    "--no-deps",  # spaCy itself is already installed (via misaki)
+                    "-r",
+                    str(SPACY_REQUIREMENTS),
+                ]
+            ),
         ),
     ]
     for m in load_models():

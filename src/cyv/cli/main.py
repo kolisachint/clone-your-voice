@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import io
 import os
 import re
+import struct
 import sys
+import wave
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
@@ -65,6 +68,29 @@ def _client() -> Any:
     from cyv.client import Client
 
     return Client()
+
+
+def _is_pcm16_mono_wav(data: bytes) -> bool:
+    """True only when `data` is verifiably a 16-bit PCM mono WAV (what the daemon accepts)."""
+    if not (data[:4] == b"RIFF" and data[8:12] == b"WAVE"):
+        return False
+    try:
+        with wave.open(io.BytesIO(data), "rb") as w:
+            return w.getsampwidth() == 2 and w.getnchannels() == 1 and w.getcomptype() == "NONE"
+    except (wave.Error, EOFError, struct.error):
+        return False
+
+
+def _notify_daemon_reload() -> None:
+    """Best-effort: tell an already-running daemon to reload voices. Never spawns one."""
+    try:
+        from cyv.client import Client
+
+        client = Client()
+        if client.status().get("running"):
+            client.reload()
+    except Exception:  # noqa: BLE001, S110 - convenience only; the next daemon start reloads
+        pass
 
 
 def _finish(wav: bytes, preset_name: str, path: Path | None, force: bool) -> None:
@@ -148,6 +174,9 @@ def cmd_voices(args: argparse.Namespace) -> int:
         if args.voices_cmd == "import":
             info = packs.import_pack(Path(args.pack), force=args.force)
             print(f"imported voice {info.name!r} -> {info.dir}")
+            for warning in getattr(info, "warnings", ()):
+                print(f"warning: {warning}", file=sys.stderr)
+            _notify_daemon_reload()
         elif args.voices_cmd == "list":
             default = packs.get_default()
             voices = packs.list_voices()
@@ -158,9 +187,11 @@ def cmd_voices(args: argparse.Namespace) -> int:
         elif args.voices_cmd == "remove":
             packs.remove_voice(args.name)
             print(f"removed voice {args.name!r}")
+            _notify_daemon_reload()
         elif args.voices_cmd == "default":
             packs.set_default(args.name)
             print(f"default voice is now {args.name!r}")
+            _notify_daemon_reload()
     except packs.PackError as e:
         raise CliError(str(e)) from e
     return EXIT_OK
@@ -172,6 +203,13 @@ def _daemon_call(fn: Any) -> Any:
     try:
         return fn()
     except DaemonError as e:
+        code = getattr(e, "code", None)
+        if code == "no_voice":
+            raise CliError(
+                "no default voice; run `cyv voices import <pack>` / `cyv voices default <name>`"
+            ) from e
+        if code:  # the daemon answered: this is a problem with the request, not the install
+            raise CliError(str(e)) from e
         raise CliError(f"{e}\n{HINT_SETUP} (or see `cyv doctor`)", EXIT_SETUP) from e
 
 
@@ -203,7 +241,7 @@ def cmd_convert(args: argparse.Namespace) -> int:
         data = sys.stdin.buffer.read() if args.input == "-" else Path(args.input).read_bytes()
     except OSError as e:
         raise CliError(f"cannot read {args.input}: {e.strerror}") from e
-    if not data.startswith(b"RIFF"):
+    if not _is_pcm16_mono_wav(data):
         try:
             data = ffmpeg.to_wav(data)
         except ffmpeg.FfmpegError as e:
@@ -234,11 +272,10 @@ def cmd_stop(args: argparse.Namespace) -> int:
     from cyv.client import DaemonError
 
     try:
-        _client().shutdown()
+        was_running = _client().shutdown()
     except DaemonError:
-        print("daemon not running")
-        return EXIT_OK
-    print("daemon stopped")
+        was_running = False
+    print("daemon stopped" if was_running else "daemon was not running")
     return EXIT_OK
 
 
@@ -248,13 +285,12 @@ def cmd_status(args: argparse.Namespace) -> int:
     try:
         status = _client().status()
     except DaemonError:
+        status = {"running": False}
+    if not status.get("running"):
         print("daemon not running")
         return EXIT_SETUP
-    if isinstance(status, dict):
-        for k, v in status.items():
-            print(f"{k}: {v}")
-    else:
-        print(status)
+    for k, v in status.items():
+        print(f"{k}: {v}")
     return EXIT_OK
 
 

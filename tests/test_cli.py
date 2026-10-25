@@ -30,14 +30,20 @@ def make_wav(seconds=0.5, rate=24000) -> bytes:
 
 
 class DaemonError(Exception):
-    pass
+    def __init__(self, message, code=None):
+        super().__init__(message)
+        self.code = code
 
 
 class FakeClient:
     calls: list = []
     down = False
+    fail_code = None
+    reloads = 0
 
     def ensure_daemon(self):
+        if FakeClient.fail_code:
+            raise DaemonError("daemon says no", FakeClient.fail_code)
         if FakeClient.down:
             raise DaemonError("daemon venv missing")
 
@@ -50,19 +56,23 @@ class FakeClient:
         return {"ok": True}, make_wav()
 
     def shutdown(self):
-        if FakeClient.down:
-            raise DaemonError("not running")
+        return not FakeClient.down
+
+    def reload(self, voice=None):
+        FakeClient.reloads += 1
 
     def status(self):
         if FakeClient.down:
-            raise DaemonError("not running")
-        return {"device": "cpu"}
+            return {"running": False}
+        return {"running": True, "device": "cpu"}
 
 
 @pytest.fixture
 def fake_client(monkeypatch, tmp_path):
     FakeClient.calls = []
     FakeClient.down = False
+    FakeClient.fail_code = None
+    FakeClient.reloads = 0
     mod = types.ModuleType("cyv.client")
     mod.Client = FakeClient
     mod.DaemonError = DaemonError
@@ -151,7 +161,25 @@ def test_daemon_missing_exit_3(fake_client, capsys):
     assert cli.main(["say", "hi"]) == 3
     assert "cyv setup" in capsys.readouterr().err
     assert cli.main(["status"]) == 3
+    assert "not running" in capsys.readouterr().out
     assert cli.main(["stop"]) == 0
+    assert "daemon was not running" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "code,needle",
+    [
+        ("no_voice", "voices default"),
+        ("bad_voice", "daemon says no"),
+        ("voice_not_found", "daemon says no"),
+        ("bad_audio", "daemon says no"),
+    ],
+)
+def test_daemon_error_codes_are_user_errors(fake_client, capsys, code, needle):
+    fake_client.fail_code = code
+    assert cli.main(["say", "hi"]) == 1
+    err = capsys.readouterr().err
+    assert needle in err and "cyv setup" not in err
 
 
 @needs_ffmpeg
@@ -162,6 +190,50 @@ def test_convert(fake_client, tmp_path):
     rc = cli.main(["convert", str(src), "--preset", "telegram", "--pitch", "2", "-o", str(out)])
     assert rc == 0 and out.read_bytes().startswith(b"OggS")
     assert fake_client.calls == [("convert", b"RIFF", None, 2, True)]
+
+
+def _wav_with(width, rate=24000, channels=1):
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(channels)
+        w.setsampwidth(width)
+        w.setframerate(rate)
+        w.writeframes(b"\x01" * (width * channels * 2400))
+    return buf.getvalue()
+
+
+def test_pcm16_detection():
+    assert cli._is_pcm16_mono_wav(make_wav())
+    assert not cli._is_pcm16_mono_wav(_wav_with(3))
+    assert not cli._is_pcm16_mono_wav(_wav_with(2, channels=2))
+    assert not cli._is_pcm16_mono_wav(b"RIFF\x00\x00\x00\x00WAVEjunk")
+    assert not cli._is_pcm16_mono_wav(b"RIFFgarbage")
+    assert not cli._is_pcm16_mono_wav(b"")
+
+
+@needs_ffmpeg
+def test_convert_transcodes_master_preset_24bit(fake_client, tmp_path):
+    from cyv import ffmpeg
+    from cyv.presets import get_preset
+
+    master = ffmpeg.encode(make_wav(), get_preset("master"))
+    with wave.open(io.BytesIO(master)) as w:
+        assert w.getsampwidth() == 3
+    src = tmp_path / "master.wav"
+    src.write_bytes(master)
+    seen = {}
+    orig = FakeClient.convert
+
+    def spy(self, wav, **kw):
+        seen["wav"] = wav
+        return orig(self, wav, **kw)
+
+    FakeClient.convert = spy
+    try:
+        assert cli.main(["convert", str(src), "-o", str(tmp_path / "o.wav")]) == 0
+    finally:
+        FakeClient.convert = orig
+    assert cli._is_pcm16_mono_wav(seen["wav"])
 
 
 def test_convert_missing_input(fake_client, tmp_path):
@@ -205,18 +277,33 @@ def fake_packs(monkeypatch):
     return state
 
 
-def test_voices_commands(fake_packs, capsys):
+def test_voices_commands(fake_packs, fake_client, capsys):
     assert cli.main(["voices", "list"]) == 0
     out = capsys.readouterr().out
     assert "* alice" in out and "  bob" in out
     assert cli.main(["voices", "import", "p.cyvpack.zip", "--force"]) == 0
     assert cli.main(["voices", "remove", "bob"]) == 0
     assert cli.main(["voices", "default", "bob"]) == 0
+    assert fake_client.reloads == 3
     assert fake_packs["log"] == [
         ("import", "p.cyvpack.zip", True),
         ("remove", "bob"),
         ("default", "bob"),
     ]
+
+
+def test_voices_no_reload_when_daemon_down(fake_packs, fake_client):
+    fake_client.down = True
+    assert cli.main(["voices", "default", "bob"]) == 0
+    assert fake_client.reloads == 0
+
+
+def test_voices_reload_failure_is_ignored(fake_packs, fake_client, monkeypatch):
+    def boom(self, voice=None):
+        raise RuntimeError("x")
+
+    monkeypatch.setattr(FakeClient, "reload", boom)
+    assert cli.main(["voices", "remove", "bob"]) == 0
 
 
 def test_voices_pack_error(fake_packs, capsys):

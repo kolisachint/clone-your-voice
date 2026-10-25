@@ -13,6 +13,7 @@ import json
 import os
 import tomllib
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -301,3 +302,121 @@ def test_e2e_pipeline(tmp_path: Path) -> None:
     assert clean_prob < 0.5 and clean_msg is None
 
     sf.write(tmp_path / "out.wav", marked.samples, marked.sample_rate)
+
+
+# --- pipeline voice cache / engine paths (review fixes) ------------------------
+
+
+class _RecEngine:
+    device = "rec"
+
+    def __init__(self) -> None:
+        self.loads: list[Path] = []
+
+    def load(self, voice_dir: Path) -> None:
+        self.loads.append(voice_dir)
+
+    def unload(self) -> None:
+        pass
+
+    def convert(self, audio: Audio, pitch: int) -> Audio:
+        return audio
+
+
+def _installed_voice(home: Path, name: str = "bob") -> Path:
+    d = home / "voices" / name
+    d.mkdir(parents=True)
+    (d / "voice.json").write_text("{}")
+    (d / "model.pth").write_bytes(b"m1")
+    (d / "model.index").write_bytes(b"i1")
+    return d
+
+
+def _pipeline(eng: _RecEngine) -> Any:
+    from cyvd.server.fakes import FakeTTS, FakeWatermarker
+    from cyvd.server.pipeline import Pipeline
+
+    return Pipeline(FakeTTS(), eng, FakeWatermarker(), 0)
+
+
+def test_pipeline_reloads_when_model_or_index_changes(cyv_home: Path) -> None:
+    d = _installed_voice(cyv_home)
+    eng = _RecEngine()
+    p = _pipeline(eng)
+    p.say("hi", "bob", 0, False)
+    p.say("hi", "bob", 0, False)
+    assert len(eng.loads) == 1
+    (d / "model.index").write_bytes(b"index-two")  # re-import --force: index changes
+    p.say("hi", "bob", 0, False)
+    assert len(eng.loads) == 2
+    (d / "model.pth").write_bytes(b"model-two!")
+    p.say("hi", "bob", 0, False)
+    assert len(eng.loads) == 3
+
+
+def test_pipeline_removed_voice_is_not_found_and_reload_is_safe(cyv_home: Path) -> None:
+    import shutil
+
+    from cyvd.server.pipeline import RequestError
+
+    d = _installed_voice(cyv_home)
+    p = _pipeline(_RecEngine())
+    p.reload(None)  # nothing loaded, no default voice: fine
+    p.say("hi", "bob", 0, False)
+    assert p.loaded == "bob"
+    shutil.rmtree(d)
+    with pytest.raises(RequestError) as ei:
+        p.say("hi", "bob", 0, False)
+    assert ei.value.code == "voice_not_found" and p.loaded is None
+    d = _installed_voice(cyv_home)
+    p.say("hi", "bob", 0, False)
+    p.reload(None)
+    assert p.loaded is None
+
+
+def test_empty_wav_is_wav_error() -> None:
+    from cyvd.server.wavio import WavError, decode_wav, encode_wav
+
+    with pytest.raises(WavError, match="empty"):
+        decode_wav(encode_wav(Audio(np.zeros(0, dtype=np.float32), 16000)))
+
+
+def test_relative_paths_resolve_absolute(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from cyvd.engine_applio.engine import ApplioEngine, applio_dir
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("CYV_APPLIO_DIR", "rel/applio")
+    assert applio_dir() == (tmp_path / "rel/applio").resolve()
+    monkeypatch.delenv("CYV_APPLIO_DIR")
+    monkeypatch.setenv("CYV_HOME", "relhome")
+    eng = ApplioEngine(Path("models"), device="cpu")
+    assert eng._root.is_absolute() and eng._models_dir.is_absolute()
+
+
+def test_engine_voice_key_covers_index(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from cyvd.engine_applio import ApplioEngine
+
+    monkeypatch.setenv("CYV_APPLIO_DIR", str(tmp_path))
+
+    eng = ApplioEngine(tmp_path, device="cpu")
+    eng._ensure_converter = lambda: _FakeConv()  # type: ignore[method-assign]
+    d = _voice_dir(tmp_path)
+    for f in ("model.pth", "model.index"):
+        (d / f).write_bytes(b"1")
+    eng.load(d)
+    key = eng._voice_key
+    eng.load(d)
+    assert eng._voice_key == key
+    (d / "model.index").write_bytes(b"22")
+    eng.load(d)
+    assert eng._voice_key != key
+    eng.unload()
+    assert eng._voice_key is None
+
+
+class _FakeConv:
+    last_embedder_model = ""
+
+    def get_vc(self, *a: Any) -> None: ...
+
+    def load_hubert(self, *a: Any) -> None: ...
