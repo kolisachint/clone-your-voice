@@ -1,6 +1,6 @@
-# clone-your-voice — Design (DRAFT v0.3)
+# clone-your-voice — Design (v0.4, signed off for M1 spikes)
 
-Status: **decisions recorded; end-to-end review incorporated**. No code until signed off.
+Status: **design accepted; next step is the M1 spikes (B0–B6)**. Product code starts only after M1 results are folded back into this doc.
 
 ## 0. Decisions log
 
@@ -8,13 +8,14 @@ Status: **decisions recorded; end-to-end review incorporated**. No code until si
 |---|---|
 | D1 | License: **MIT** (matches Applio) |
 | D2 | Default text-to-speech: **offline Kokoro**. Edge-TTS comes later as an opt-in. |
-| D3 | Watermark: **on by default, user can turn it off** |
+| D3 | Watermark: **on by default, user can turn it off**. SynthID-style invisible neural audio watermark (ADR-004). |
 | D4 | Interface: **CLI only**. The daemon is internal and has no network port. |
 | D5 | v1 platform: **macOS on Apple Silicon only**. Training is in the cloud. |
 | D6 | "Hybrid" means **cloud training + local inference** |
 | ADR-001 | Python, no Rust: the bottleneck is GPU math and cold start, not CPU |
 | ADR-002 | Voice pack v1 format (§4.2) |
 | ADR-003 | The daemon speaks length-prefixed JSON over a unix socket using plain `asyncio`, **not FastAPI/HTTP** (one local client; faster import, less surface) |
+| ADR-004 | Watermarking sits behind a `Watermarker` interface. **Default backend: Meta AudioSeal (MIT)**, the open, offline equivalent of SynthID audio. **SynthID** becomes a backend if Google ever releases an embedding SDK. Perth is the fallback (§6.3). |
 
 ## 1. Goal and scope
 
@@ -75,8 +76,9 @@ Let anyone clone **their own** voice cheaply: train once on Colab, then run `cyv
 | B1 | T4 training time and quality vs epochs (100/200/400) and data length (2/5/10 min) |
 | B2 | Resident memory on an 8 GB M1 (HuBERT + RMVPE + Kokoro + 1 voice) |
 | B3 | Warm latency for a 10 s line. Also the **M1 MPS SDPA bug on macOS 26** and the cost of CPU fallback. Decide the MPS-vs-CPU policy per component. |
-| B4 | Perth watermark: survives Opus 32 kbps? Audible? CPU cost? Perth license and weights confirmed? |
+| B4 | AudioSeal vs Perth: detection rate and bit accuracy after an ffmpeg libopus 32 kbps round trip, MP3 192 kbps and resampling. Also audibility, CPU/MPS cost per 10 s, and false-positive rate on 100 clean clips. The winner becomes the default. |
 | B5 | Does `torch.load(weights_only=True)` load Applio checkpoints? (needed for §6.1) |
+| B6 | Re-check SynthID: is there an embedding SDK or API for audio that third parties can run offline? (As of Oct 2026, no.) |
 
 Performance targets (warm ≤1.5 s, ≤2.5 GB) are **provisional** and stay out of the README until B2/B3 report.
 
@@ -106,7 +108,7 @@ Performance targets (warm ≤1.5 s, ≤2.5 GB) are **provisional** and stay out 
 
 - **Two layers:**
   - `cyv`: a tiny pure-Python package (`pipx`/`uv tool install`) that never imports torch, so `cyv --help` is instant.
-  - `cyv setup`: builds the **daemon venv** with `uv` from a committed, macOS-arm64-tested **`uv.lock`**. That venv holds Applio@pin, Kokoro, torch and Perth.
+  - `cyv setup`: builds the **daemon venv** with `uv` from a committed, macOS-arm64-tested **`uv.lock`**. That venv holds Applio@pin, Kokoro, torch and AudioSeal.
 - **Prerequisites:** Xcode Command Line Tools if B0 finds any compiled deps, plus **ffmpeg from Homebrew**. `doctor` checks both and prints the exact fix.
 - **Model downloads:** HuBERT/ContentVec, RMVPE, Kokoro weights. Fetched once and verified by sha256.
 - **If B0 shows Applio and Kokoro conflict,** they get two daemon venvs. Kokoro then runs as a second worker process behind the same daemon. That's decided after B0, not now.
@@ -198,7 +200,16 @@ The socket permissions and peer-uid check keep out *other users*. They do not st
 ### 6.3 Consent and watermark
 
 - **Consent is an attestation record, not enforcement.** `dataset prepare` asks for a one-line attestation and stores it in the pack. `import` only validates the schema; it doesn't gate on consent, because a self-authored file is trivially forged. `USAGE_POLICY.md`: only your own voice or one you have explicit permission for. No impersonation, fraud or harassment.
-- **Watermark** (Perth): **on by default, user can turn it off** (D3). It ships in **M2**. It's provenance, not security. If B4 shows it doesn't survive Opus, we say so in the docs rather than ship a placebo.
+- **Watermark (ADR-004):** **on by default, user can turn it off** (D3). It ships in **M2**.
+  - **What we ship:** a SynthID-style approach, meaning an imperceptible watermark from a neural network, embedded in the audio itself (not in metadata), and detectable after compression and editing.
+  - **Why not SynthID itself:** as of Oct 2026, Google offers no SynthID *audio* embedding SDK or API for third parties. It only runs inside Google's products and their partners'. Google's SynthID Detector only detects Google's own watermark, and checking a file means uploading audio to Google. Only SynthID *Text* is open source. A fully offline MIT tool therefore can't use it today. We say "SynthID-style", never "SynthID", to avoid misrepresenting the product.
+  - **Default backend: Meta AudioSeal** (MIT code and weights, runs offline, PyTorch).
+    - It embeds a 16-bit message. We use it as `cyv` format version + flags, never anything identifying the user.
+    - It gives per-frame detection, so partially edited clips still detect.
+    - Published benchmarks (AudioMarkBench) rank it most robust among open watermarks.
+  - **Fallback backend:** Resemble Perth (MIT), if B4 shows it beats AudioSeal on Opus.
+  - **Order of operations:** watermark the 24/48 kHz WAV *before* the preset encode. The pipeline is resample → embed → upsample (if needed) → ffmpeg.
+  - **Limits:** it's provenance, not security. Opus at 32 kbps is a known weak spot. If B4 shows detection doesn't survive voice-note presets, the docs say so plainly rather than ship a placebo.
 - **Not compliance:** none of this makes a use acceptable under Colab's terms. Users are responsible.
 
 ### 6.4 Privacy
@@ -231,9 +242,9 @@ Weights and voices are never committed.
 ## 9. Milestones
 
 - **M0:** design sign-off and ADR-001…003.
-- **M1:** spikes B0–B5. Then revise this doc with the measured numbers.
+- **M1:** spikes B0–B6. Then revise this doc with the measured numbers.
 - **M2:** MVP covering the full journey, plus hardened import, watermark and usage policy.
-- **M3:** watermark detect, Drive download helper, more presets and languages.
+- **M3:** `cyv watermark detect <file>` (local, AudioSeal detector), Drive download helper, more presets and languages, and a SynthID backend if B6 ever flips.
 - **M4:** plug-in entry points once a second TTS or engine exists (edge-tts opt-in is the likely first).
 
 ## 10. Risks
