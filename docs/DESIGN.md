@@ -228,7 +228,7 @@ clone-your-voice/
 ├── src/cyvd/       server/  engine_applio/  tts_kokoro/  watermark/     (daemon venv)
 ├── tests/          unit, pack-import fuzz (zip-slip, bad pickles), CPU smoke test
 ├── uv.lock
-└── .github/        workflows/ (ruff, pytest macos-14, notebook lint)  ISSUE_TEMPLATE/  PULL_REQUEST_TEMPLATE.md
+└── .github/        workflows/ (ruff, pytest macos-14, notebook checks in tests/test_notebook.py)  ISSUE_TEMPLATE/  PULL_REQUEST_TEMPLATE.md
 ```
 
 Weights and voices are never committed.

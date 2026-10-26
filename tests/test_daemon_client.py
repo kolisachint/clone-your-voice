@@ -9,6 +9,7 @@ import socket
 import stat
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import wave
@@ -45,12 +46,24 @@ def daemon_env(cyv_home: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Call
 
 
 def pid_alive(pid: int) -> bool:
+    """Portable liveness check (no /proc, so it works on macOS too)."""
     try:
         os.kill(pid, 0)
-        with open(f"/proc/{pid}/stat") as f:  # zombies count as dead
-            return f.read().split()[2] != "Z"
-    except (OSError, IndexError):
+    except ProcessLookupError:
         return False
+    except PermissionError:
+        return True  # exists, we just cannot signal it
+    except OSError:
+        return False
+    # os.kill(pid, 0) also succeeds for zombies; reap ours so they read as dead.
+    try:
+        if os.waitpid(pid, os.WNOHANG)[0] == pid:
+            return False
+    except ChildProcessError:
+        pass  # not our child; the kill above says it exists
+    except OSError:
+        pass
+    return True
 
 
 def wait_for(cond: Callable[[], bool], timeout: float) -> bool:
@@ -338,3 +351,24 @@ def test_relative_cyv_home_is_absolute(monkeypatch: pytest.MonkeyPatch, tmp_path
     h = paths.home()
     monkeypatch.chdir("/")
     assert h.is_absolute() and h.parent.parent == tmp_path.resolve()
+
+
+def test_run_dir_falls_back_when_home_socket_path_too_long(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CYV_HOME", str(tmp_path / ("x" * 120)))
+    d = paths.run_dir()
+    assert len(str(d / "cyvd.sock")) <= 100
+    assert d == Path(tempfile.gettempdir()) / f"cyv-{os.getuid()}"
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS LOCAL_PEERCRED only")
+def test_peer_uid_reports_own_uid_darwin() -> None:
+    from cyvd.server import peercred
+
+    a, b = socket.socketpair()
+    try:
+        assert peercred.peer_uid(a) == os.getuid()
+    finally:
+        a.close()
+        b.close()
