@@ -1,6 +1,6 @@
 # clone-your-voice — Design (v0.4, signed off for M1 spikes)
 
-Status: **design accepted. The Linux-testable scaffold is implemented (§11). B4–B6 are done on Linux CPU. B0–B3 need an Apple Silicon Mac.**
+Status: **design accepted. The Linux-testable scaffold is implemented (§11). B4–B6 are done on Linux CPU. B0, B2, B3 ran on an M1 Mac; B1 still needs a real Colab T4.**
 
 ## 0. Decisions log
 
@@ -80,7 +80,7 @@ Let anyone clone **their own** voice cheaply: train once on Colab, then run `cyv
 | B5 | Does `torch.load(weights_only=True)` load Applio checkpoints? (needed for §6.1) |
 | B6 | Re-check SynthID: is there an embedding SDK or API for audio that third parties can run offline? (As of Oct 2026, no.) |
 
-Performance targets (warm ≤1.5 s, ≤2.5 GB) are **provisional** and stay out of the README until B2/B3 report.
+Performance targets (warm ≤1.5 s, ≤2.5 GB) are **provisional** and stay out of the README. B2/B3 have now reported on the M1 (see §11): memory looks fine, but the ≤1.5 s latency target is already missed.
 
 **Bugs in the original sample code (do not copy):**
 - `speak.sh`:
@@ -260,7 +260,7 @@ Weights and voices are never committed.
 | 8 GB memory pressure | One warm voice, idle exit, B2 |
 | Poor datasets lead to bad clones and churn | `dataset prepare` checks, notebook self-test, recording guide |
 
-## 11. Implementation status and findings (Oct 2026, Linux x86 CPU)
+## 11. Implementation status and findings (Oct 2026, Linux x86 CPU and M1 Mac)
 
 The Linux-testable parts of M2 are in the repo: the thin CLI, the daemon, hardened import, the components, the Colab notebook, and docs. 218 tests pass. An independent code review led to these hardening changes:
 
@@ -279,6 +279,14 @@ Findings that refine the design:
 - **B4:** AudioSeal is the default and Perth is the fallback. Both survive the voice-note preset. Perth is more robust to Opus 8 kbps and noise, but quieter (SNR 14.9 dB vs 28.5 dB), carries no payload, and is ~7× cheaper on CPU (`docs/benchmarks/B4-watermark.md`).
 - **B5:** 7 real Applio and RVC-WebUI checkpoints load with plain `weights_only=True`, with no safe-globals needed, so the §6.1 sanitize plan holds. The sanitizer tolerates `sr` as str or int and `f0` as int or bool. Applio's `model_information.py` and `inspect_checkpoint.py` fall back to unsafe loading, so cyv never calls them, and CI enforces that.
 - **B6:** still no third-party SynthID audio embedding as of Oct 2026.
+- **Mac validation (M1, 8 GB, macOS 27.2):** B0, B2, B3, the socket auth path, and the AudioSeal device question have all run on Apple Silicon:
+  - **B0:** one venv suffices — ~81 s install, zero missing arm64 wheels, no compiling. Python must be 3.12 (kokoro/misaki/preshed reject 3.14). The two-venv fallback is not needed (`docs/benchmarks/B0-clean-install.md`).
+  - **B2:** the full warm set minus the voice peaks at 1.35 GB RSS; ~1.5–1.8 GB extrapolated with one voice, comfortable on 8 GB (`docs/benchmarks/B2-memory.md`). The with-voice measurement still needs a Colab-trained pack.
+  - **B3:** a warm 10 s line costs TTS 1.4 s + f0 0.4 s + embed 0.2 s ≈ 2.0 s before the voice network runs, so the provisional ≤1.5 s target is missed — the target moves or the pipeline gets faster (streaming synth is the lever). The macOS 26 MPS SDPA bug does not reproduce on 27.2; policy is MPS-first with CPU retry (`docs/benchmarks/B3-latency.md`).
+  - **Socket:** the macOS `LOCAL_PEERCRED` peer-uid check is covered by tests (`tests/test_daemon_client.py`). The daemon serve path is still untested with no voice pack loaded.
+  - **AudioSeal on MPS:** embed ties CPU (~0.27 s per 10 s); detect is ~4.5× faster on CPU (0.14 s vs ~0.64 s), so the watermarker runs on CPU. The watermark survives the Opus 32k voice-note preset (prob 1.0) in the M1 E2E smoke (`docs/benchmarks/audioseal-mps.md`).
+  - **Setup replication:** the uv-path rebuild works with no Homebrew. Plain `uv lock` drifts from the real install (torch 2.14.1 vs the 2.11.0 Applio pins), so `setup.py` stays the installer for v1 (`docs/benchmarks/setup-m1.md`).
+- **M3 `watermark detect` shipped:** the CLI, protocol, and daemon plumbing are in. Apple Silicon latency numbers are still missing (`docs/benchmarks/detect.md`).
 - **Applio @ pin quirks:**
   - `convert_audio` is file-only, so the engine calls `get_vc`/`load_hubert`/`vc.pipeline` in memory and memoizes the FAISS index.
   - Applio resolves base models relative to its cwd, so the engine symlinks them from `~/.cyv/models` and runs Applio calls under a locked chdir.
@@ -291,7 +299,7 @@ Findings that refine the design:
   - `soxr` has been added to the daemon dependencies.
   - AudioSeal's own loader uses unsafe unpickling. That's acceptable only because its checkpoints are sha256-pinned in `src/cyv/models.toml`.
 - **voice.json `sha256`** records the uploaded `model.pth`. The installed file is the sanitized re-save.
-- **CI** is parked at `docs/ci/ci.yml` until a maintainer with GitHub `workflow` permission moves it into `.github/workflows/`.
+- **CI** is active at `.github/workflows/ci.yml`: ruff, pytest on macos-14, and notebook pin checks.
 
-**Next (needs an Apple Silicon Mac):** B0 clean install via `cyv setup`, B2 memory, B3 latency and the MPS/SDPA fallback, B1 on a real Colab T4, the macOS `LOCAL_PEERCRED` path, and AudioSeal cost on MPS.
+**Next:** B1 on a real Colab T4, the with-voice B2/B3 re-run once a Colab-trained pack exists, `cyv doctor` on a real `~/.cyv`, and the daemon serve path (`serve`/`say` through the socket).
 

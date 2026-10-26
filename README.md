@@ -3,8 +3,8 @@
 Clone **your own** voice: train once on a free cloud GPU (Colab), then speak in your voice locally
 on an Apple Silicon Mac from the terminal.
 
-> **Status: early.** The scaffold is built and tested on Linux. It has not yet been validated on a
-> Mac or a real Colab T4. See [docs/DESIGN.md §11](docs/DESIGN.md#11-implementation-status-and-findings-oct-2026-linux-x86-cpu).
+> **Status: early.** The scaffold is built and validated on an Apple Silicon Mac (M1, macOS 27.2).
+> Training still needs a real Colab T4 run. See [docs/DESIGN.md §11](docs/DESIGN.md#11-implementation-status-and-findings-oct-2026-linux-x86-cpu-and-m1-mac) and [docs/benchmarks/](docs/benchmarks/).
 
 ## How it works
 
