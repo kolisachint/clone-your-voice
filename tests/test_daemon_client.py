@@ -104,6 +104,29 @@ def test_convert_roundtrip(daemon_env: Callable[..., None]) -> None:
     assert np.abs(a.astype(int) - b.astype(int)).max() <= 1
 
 
+def test_detect_roundtrip(daemon_env: Callable[..., None]) -> None:
+    result = Client().detect(make_wav())
+    assert result["ok"] is True
+    assert result["prob"] == 0.0
+    assert result["message"] is None
+    assert result["crc_ok"] is False
+    assert result["backend"] == "fake"
+
+
+def test_detect_bad_audio(daemon_env: Callable[..., None]) -> None:
+    c = Client()
+    with pytest.raises(DaemonError) as ei:
+        c.detect(b"not a wav")
+    assert ei.value.code == "bad_audio"
+    with pytest.raises(DaemonError) as ei:
+        c.detect(b"")
+    assert ei.value.code == "bad_audio"
+    with pytest.raises(DaemonError) as ei:
+        c.detect(make_wav(n=0))
+    assert ei.value.code == "bad_audio"
+    assert c.health()["ok"]  # daemon survived
+
+
 def test_bad_inputs(daemon_env: Callable[..., None]) -> None:
     c = Client()
     for voice in ("../etc", "UPPER", "a" * 33, ""):

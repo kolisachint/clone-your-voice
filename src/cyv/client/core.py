@@ -79,6 +79,11 @@ class Client:
         }
         return self._request(req, wav_bytes)
 
+    def detect(self, wav_bytes: bytes) -> dict[str, Any]:
+        """Detect the cyv watermark in WAV bytes. Returns the daemon's JSON-only reply."""
+        header, _ = self._request({"op": "detect", "audio_bytes": len(wav_bytes)}, wav_bytes)
+        return header
+
     def reload(self, voice: str | None = None, *, spawn: bool = False) -> None:
         """Make a running daemon drop its cached voice (re-read from disk on next use).
 

@@ -149,6 +149,19 @@ class Daemon:
                     raise RequestError("bad_request", "audio_bytes does not match audio frame")
                 wav = await self.run_work(self.pipeline.convert, data, voice, pitch, wm)
             return {"ok": True}, wav
+        if op == "detect":
+            n = req.get("audio_bytes")
+            if isinstance(n, bool) or not isinstance(n, int) or n < 0:
+                raise RequestError("bad_request", "detect needs integer audio_bytes >= 0")
+            async with self.audio_sem:
+                # Same framing discipline as convert: consume the frame before replying.
+                data = await self.read_audio_frame(reader)
+                if not data:
+                    raise WavError("audio is empty")
+                if len(data) != n:
+                    raise RequestError("bad_request", "audio_bytes does not match audio frame")
+                result = await self.run_work(self.pipeline.detect, data)
+            return {"ok": True, **result}, b""
         raise RequestError("bad_request", f"unknown op: {op!r}")
 
     # --- lifecycle -----------------------------------------------------------

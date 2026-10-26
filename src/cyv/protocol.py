@@ -13,6 +13,11 @@ Ops (v1):
   say      {text, voice, pitch=0, watermark=true}           -> header + WAV
   convert  {audio_bytes: N, voice, pitch=0, watermark=true} + one binary frame (input WAV)
                                                              -> header + WAV
+  detect   {audio_bytes: N} + one binary frame (input WAV)
+                                                             -> {"ok", "prob", "message", "crc_ok", "backend"}
+                                                             (JSON only: prob is the watermarked fraction,
+                                                             message the decoded 16-bit int or null, crc_ok
+                                                             whether it is a coherent cyv message)
   reload   {voice?}                                          -> {"ok"}
   shutdown                                                   -> {"ok"}
 

@@ -381,6 +381,45 @@ def test_empty_wav_is_wav_error() -> None:
         decode_wav(encode_wav(Audio(np.zeros(0, dtype=np.float32), 16000)))
 
 
+def test_pipeline_detect_no_watermark(cyv_home: Path) -> None:
+    from cyvd.server.wavio import encode_wav
+
+    result = _pipeline(_RecEngine()).detect(encode_wav(Audio(tone(440, 16000), 16000)))
+    assert result == {"prob": 0.0, "message": None, "crc_ok": False, "backend": "fake"}
+
+
+def test_pipeline_detect_rejects_bad_audio(cyv_home: Path) -> None:
+    from cyvd.server.wavio import WavError
+
+    with pytest.raises(WavError):
+        _pipeline(_RecEngine()).detect(b"not a wav")
+
+
+class _StubWatermarked:
+    name = "stub"
+
+    def embed(self, audio: Audio, message: int) -> Audio:
+        return audio
+
+    def detect(self, audio: Audio) -> tuple[float, int | None]:
+        return 0.97, CYV_MESSAGE
+
+
+def test_pipeline_detect_marks_cyv_message(cyv_home: Path) -> None:
+    from cyvd.server.fakes import FakeTTS
+    from cyvd.server.pipeline import Pipeline
+    from cyvd.server.wavio import encode_wav
+
+    p = Pipeline(FakeTTS(), _RecEngine(), _StubWatermarked(), 0)
+    result = p.detect(encode_wav(Audio(tone(440, 16000), 16000)))
+    assert result == {
+        "prob": 0.97,
+        "message": CYV_MESSAGE,
+        "crc_ok": True,
+        "backend": "stub",
+    }
+
+
 def test_relative_paths_resolve_absolute(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from cyvd.engine_applio.engine import ApplioEngine, applio_dir
 

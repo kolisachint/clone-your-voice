@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import os
 import re
 import struct
@@ -261,6 +262,49 @@ def cmd_convert(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_watermark_detect(args: argparse.Namespace) -> int:
+    from cyv import ffmpeg
+
+    try:
+        data = sys.stdin.buffer.read() if args.file == "-" else Path(args.file).read_bytes()
+    except OSError as e:
+        raise CliError(f"cannot read {args.file}: {e.strerror}") from e
+    if not _is_pcm16_mono_wav(data):
+        try:
+            data = ffmpeg.to_wav(data)
+        except ffmpeg.FfmpegError as e:
+            raise CliError(f"cannot decode input audio: {e}") from e
+    client = _client()
+
+    def go() -> Any:
+        client.ensure_daemon()
+        return client.detect(data)
+
+    result = _daemon_call(go)
+    prob = float(result.get("prob", 0.0))
+    message = result.get("message")
+    crc_ok = bool(result.get("crc_ok", False))
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "watermarked": message is not None,
+                    "prob": prob,
+                    "message": message,
+                    "crc_ok": crc_ok,
+                    "backend": result.get("backend"),
+                }
+            )
+        )
+        return EXIT_OK
+    if message is None:
+        print(f"no watermark (prob={prob:.2f})")
+    else:
+        crc = "crc ok" if crc_ok else "crc mismatch"
+        print(f"watermarked prob={prob:.2f} message=0x{message:04x} ({crc})")
+    return EXIT_OK
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     client = _client()
     _daemon_call(client.ensure_daemon)
@@ -355,6 +399,14 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("input", help="input audio file, or - for stdin")
     _synth_opts(s)
     s.set_defaults(func=cmd_convert)
+
+    ws = sub.add_parser("watermark", help="watermark tools").add_subparsers(
+        dest="watermark_cmd", metavar="<subcommand>", required=True
+    )
+    s = ws.add_parser("detect", help="detect the cyv watermark in an audio file")
+    s.add_argument("file", help="audio file to check, or - for stdin")
+    s.add_argument("--json", action="store_true", help="print the result as JSON")
+    s.set_defaults(func=cmd_watermark_detect)
 
     for name, fn, helptext in (
         ("serve", cmd_serve, "start the daemon"),

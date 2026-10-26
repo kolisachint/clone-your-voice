@@ -40,6 +40,7 @@ class FakeClient:
     down = False
     fail_code = None
     reloads = 0
+    detect_result = {"ok": True, "prob": 1.0, "message": 0x1177, "crc_ok": True, "backend": "fake"}
 
     def ensure_daemon(self):
         if FakeClient.fail_code:
@@ -54,6 +55,10 @@ class FakeClient:
     def convert(self, wav, voice=None, pitch=0, watermark=True):
         FakeClient.calls.append(("convert", wav[:4], voice, pitch, watermark))
         return {"ok": True}, make_wav()
+
+    def detect(self, wav):
+        FakeClient.calls.append(("detect", wav[:4]))
+        return dict(FakeClient.detect_result)
 
     def shutdown(self):
         return not FakeClient.down
@@ -73,6 +78,13 @@ def fake_client(monkeypatch, tmp_path):
     FakeClient.down = False
     FakeClient.fail_code = None
     FakeClient.reloads = 0
+    FakeClient.detect_result = {
+        "ok": True,
+        "prob": 1.0,
+        "message": 0x1177,
+        "crc_ok": True,
+        "backend": "fake",
+    }
     mod = types.ModuleType("cyv.client")
     mod.Client = FakeClient
     mod.DaemonError = DaemonError
@@ -238,6 +250,54 @@ def test_convert_transcodes_master_preset_24bit(fake_client, tmp_path):
 
 def test_convert_missing_input(fake_client, tmp_path):
     assert cli.main(["convert", str(tmp_path / "nope.wav")]) == 1
+
+
+def test_watermark_detect(fake_client, tmp_path, capsys):
+    src = tmp_path / "in.wav"
+    src.write_bytes(make_wav())
+    assert cli.main(["watermark", "detect", str(src)]) == 0
+    assert capsys.readouterr().out.strip() == "watermarked prob=1.00 message=0x1177 (crc ok)"
+    assert fake_client.calls == [("detect", b"RIFF")]
+
+
+def test_watermark_detect_no_watermark(fake_client, tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(
+        FakeClient,
+        "detect",
+        lambda self, wav: {"ok": True, "prob": 0.03, "message": None, "crc_ok": False},
+    )
+    src = tmp_path / "in.wav"
+    src.write_bytes(make_wav())
+    assert cli.main(["watermark", "detect", str(src)]) == 0
+    assert capsys.readouterr().out.strip() == "no watermark (prob=0.03)"
+
+
+def test_watermark_detect_json(fake_client, tmp_path, capsys):
+    import json
+
+    src = tmp_path / "in.wav"
+    src.write_bytes(make_wav())
+    assert cli.main(["watermark", "detect", str(src), "--json"]) == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "watermarked": True,
+        "prob": 1.0,
+        "message": 0x1177,
+        "crc_ok": True,
+        "backend": "fake",
+    }
+
+
+def test_watermark_detect_stdin(fake_client, capsys, monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO(make_wav())))
+    assert cli.main(["watermark", "detect", "-"]) == 0
+    assert "watermarked prob=1.00" in capsys.readouterr().out
+    assert fake_client.calls == [("detect", b"RIFF")]
+
+
+def test_watermark_detect_missing_input(fake_client, tmp_path, capsys):
+    assert cli.main(["watermark", "detect", str(tmp_path / "nope.wav")]) == 1
+    assert "cannot read" in capsys.readouterr().err
+    assert fake_client.calls == []
 
 
 def test_serve_status_stop(fake_client, capsys):

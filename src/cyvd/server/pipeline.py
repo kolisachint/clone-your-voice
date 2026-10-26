@@ -12,6 +12,7 @@ from typing import Any
 from cyv import paths
 from cyvd.interfaces import TTS, Audio, Engine, Watermarker
 from cyvd.server.wavio import decode_wav, encode_wav
+from cyvd.watermark.audioseal_wm import message_is_cyv
 
 VOICE_RE = re.compile(r"^[a-z0-9_-]{1,32}$")
 
@@ -138,6 +139,16 @@ class Pipeline:
         self.load(cfg)
         out = self.engine.convert(decode_wav(wav), pitch + cfg.pitch_shift)
         return self._finish(out, watermark)
+
+    def detect(self, wav: bytes) -> dict[str, Any]:
+        """Detect the watermark in `wav`. No voice is loaded or needed."""
+        prob, message = self.watermarker.detect(decode_wav(wav))
+        return {
+            "prob": float(prob),
+            "message": message,
+            "crc_ok": message_is_cyv(message),
+            "backend": self.watermarker.name,
+        }
 
     def reload(self, voice: str | None) -> None:
         """Unload the cached voice (safe when nothing is loaded).
