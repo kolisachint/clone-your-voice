@@ -1,0 +1,13 @@
+{
+  "summary": "status: complete\n\nFull verification of merged main (3426b83, branch agent/fulltest) is done. No repo edits; worktree tree is clean.\n\nEnv (worktree-local, gitignored, no brew used)\n- `.venv` created with uv-managed CPython 3.12.15 (`~/.local/bin/uv venv --python 3.12`).\n- Installed `pip install -e '.[dev]'` → pytest 9.1.1, ruff 0.17.2, plus torch 2.14.1 (macOS arm64 CPU wheel). No model weights downloaded.\n\nRuff\n- `ruff check .`: All checks passed.\n- `ruff format --check .`: 82 files already formatted.\n\nPytest (default, no CYV_E2E=1)\n- Full suite: **229 passed, 6 skipped in ~46s**.\n- `tests/test_packs.py` (previously uncollectable without torch): now collects — **67 passed, 2 skipped** standalone. The torch gate is cleared.\n- 6 skips, all with benign reasons (missing optional deps / platform / E2E gate):\n  - test_components.py:144 — no `audioseal` module\n  - test_components.py:279 — needs CYV_E2E=1 (slow real-model path, excluded per brief)\n  - test_notebook.py:129 — `jsonschema` not installed\n  - test_packs.py:335 — no `jsonschema`\n  - test_packs.py:499 — no `faiss`\n  - test_setup.py:25 — non-mac behaviour (running on macOS)\n- No test attempted a weight/network download; nothing blocked-with-reason. No failures, so no merged-code vs env diagnosis was needed.\n\nFiles changed: none (uncommitted changes: none; `git status --short` empty).\nScratch paths: worktree `/Users/sachinkoli/.hoocode/worktrees/clone-your-voice/fulltest` (`.venv/` inside it); no /tmp scratch used.\n\nNote for follow-up: skips 1, 3, 4, 5 would go away if `audioseal`, `jsonschema`, `faiss` were installed, but they are daemon/heavy deps outside the test env the brief specified — suite is green without them.",
+  "files_changed": [],
+  "confidence": 0.9,
+  "status": "complete",
+  "usage": {
+    "input": 14974,
+    "output": 2367,
+    "cacheRead": 144204,
+    "cacheWrite": 0,
+    "cost": 0.0022592080000000004
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-10-26T04:11:00.747Z",
+  "task_id": "dispatch-1792987860747-mtu9z1",
+  "agent_type": "general-purpose",
+  "depth": 1,
+  "reason": "user_override",
+  "complexity": "high",
+  "task": "Goal: Run spikes B2 (resident memory on 8GB M1: HuBERT+RMVPE+Kokoro+1 voice) and B3 (warm latency for 10s line; M1 MPS SDPA bug on macOS 27.2; MPS-vs-CPU policy per component) for repo /Users/sachinkoli/github/clone-your-voice on this Apple M1 / macOS 27.2 machine.\n\nContext: DESIGN.md §3 defines B2/B3; §11 notes Linux CPU peak RSS was 2.9GB (above 2.5GB target) and timings were contended/unquotable. Relevant code: src/cyvd/engine_applio/engine.py (has _MPS_MARKERS CPU-fallback logic), src/cyvd/tts_kokoro/tts.py, src/cyvd/server/pipeline.py. Workspace /Users/sachinkoli/github/clone-your-voice, branch main. Work in /tmp/cyv-b23-<random>, do not modify repo files, never commit/push.\n\nConstraints: READ + RUN only, no repo edits, no training runs. If model downloads are needed, prefer tiny/fixture voices and local CPU/MPS smoke inputs; do not download full HuBERT/RMVPE weights over network unless already cached — check ~/.cyv/models and ~/.cache first and report cache state. Set PYTORCH_ENABLE_MPS_FALLBACK=1 as docs suggest. Measure with /usr/bin/time -l (max RSS) and python time.perf_counter for latency. Test the SDPA path explicitly and record whether the macOS 26->27 MPS bug reproduces.\n\nDone when: B2 peak-RSS number (or blocked-with-reason if weights unavailable) and B3 warm-latency + MPS-vs-CPU recommendation per component are reported, with hardware label (M1, RAM, macOS 27.2, torch version).\n\nReport: status; summary table (component, device, latency, RSS); SDPA bug reproduced? yes/no with error text; MPS-vs-CPU policy recommendation; commands run; not-verified items.",
+  "parent_session": "01a17666-0cbd-734a-9b42-7ad36e6dd83d"
+}

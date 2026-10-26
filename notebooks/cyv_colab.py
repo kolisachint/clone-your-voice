@@ -392,7 +392,19 @@ def run_and_sync(
 ) -> int:
     """Run cmd, stream its output into the notebook and a log file, and (optionally) copy
     checkpoints from local_dir to drive_dir every `interval` seconds while it runs.
-    Returns the exit code."""
+    Returns the exit code.
+
+    A Colab-style `MPLBACKEND=module://...` inherited from the parent is replaced
+    with headless-safe `Agg`: that backend only exists inside the IPython kernel,
+    and Applio's training subprocess imports `matplotlib.pyplot` and crashes on it.
+    An explicit caller-provided `MPLBACKEND` is always respected."""
+    child_env = dict(os.environ)
+    if env:
+        child_env.update(env)
+    if not (env and "MPLBACKEND" in env) and child_env.get("MPLBACKEND", "").startswith(
+        "module://"
+    ):
+        child_env["MPLBACKEND"] = "Agg"
     stop = threading.Event()
 
     def _sync_loop():
@@ -413,7 +425,7 @@ def run_and_sync(
             proc = subprocess.Popen(
                 [str(c) for c in cmd],
                 cwd=cwd,
-                env=env,
+                env=child_env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,

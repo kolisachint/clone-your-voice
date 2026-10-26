@@ -407,3 +407,39 @@ def test_cleanup_cell_removes_selftest_and_features(nb):
     cell = next(s for s in _code(nb) if "YES_DELETE_MY_DATASET" in s)
     for needle in ("selftest_output.wav", "selftest_input.wav", '"extracted"', '"f0"', "_meta"):
         assert needle in cell
+
+
+def test_run_and_sync_forces_headless_matplotlib(tmp_path, monkeypatch):
+    # Colab sets MPLBACKEND to the in-kernel inline backend, which Applio's
+    # training subprocess cannot use (it crashes on `import matplotlib.pyplot`).
+    monkeypatch.setenv("MPLBACKEND", "module://matplotlib_inline.backend_inline")
+    log = tmp_path / "run.log"
+    probe = tmp_path / "backend.txt"
+    rc = cyv_colab.run_and_sync(
+        [
+            sys.executable,
+            "-c",
+            "import os; open(r'" + str(probe) + "', 'w').write(os.environ['MPLBACKEND'])",
+        ],
+        cwd=tmp_path,
+        log_path=log,
+    )
+    assert rc == 0
+    assert probe.read_text() == "Agg"
+
+
+def test_run_and_sync_caller_env_wins(tmp_path):
+    log = tmp_path / "run.log"
+    probe = tmp_path / "backend.txt"
+    rc = cyv_colab.run_and_sync(
+        [
+            sys.executable,
+            "-c",
+            "import os; open(r'" + str(probe) + "', 'w').write(os.environ['MPLBACKEND'])",
+        ],
+        cwd=tmp_path,
+        log_path=log,
+        env={"MPLBACKEND": "svg"},
+    )
+    assert rc == 0
+    assert probe.read_text() == "svg"

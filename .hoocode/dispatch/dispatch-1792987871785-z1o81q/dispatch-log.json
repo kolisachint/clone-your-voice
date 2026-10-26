@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-10-26T04:11:11.785Z",
+  "task_id": "dispatch-1792987871785-z1o81q",
+  "agent_type": "general-purpose",
+  "depth": 1,
+  "reason": "user_override",
+  "complexity": "high",
+  "task": "Goal: Baseline the repo-hygiene gaps in /Users/sachinkoli/github/clone-your-voice (branch main) and report exactly what it takes to close each — do NOT close them yet (no commits, no moves, no installs).\n\nContext: DESIGN §4.1 says `cyv setup` builds the daemon venv from a committed macOS-arm64-tested uv.lock — but there is no uv.lock at repo root. CI lives parked at docs/ci/ci.yml with a README saying a maintainer must `git mv` it to .github/workflows/ (check .github/ contents — ISSUE_TEMPLATE + PULL_REQUEST_TEMPLATE exist, workflows/ does not). CLAUDE.md requires: new deps recorded in docs/licenses.md, engine/TTS changes get docs/benchmarks/ entries. Check: (1) does docs/licenses.md cover current daemon deps incl. espeak-ng GPL note? (2) what does docs/ci/ci.yml run and is it stale vs pyproject? (3) run `ruff check` / `pytest --collect-only` equivalents ONLY if ruff/pytest are already installed (python3 -m ruff / python3 -m pytest) — if not installed, say so and do not install. (4) outline uv.lock generation steps for macOS arm64 without running a full resolve+install (metadata check only).\n\nConstraints: READ-ONLY plus already-installed tool invocations only. No pip/uv installs, no file moves, no edits, no network installs. Never commit or push.\n\nDone when: each gap (uv.lock, CI activation, licenses coverage, baseline lint/test collect) has a close-out recipe with commands + risk notes.\n\nReport: status; per-gap findings with file:line evidence; exact close-out commands for the maintainer; what you deliberately did not run and why.",
+  "parent_session": "01a17666-0cbd-734a-9b42-7ad36e6dd83d"
+}

@@ -1,0 +1,10 @@
+{
+  "task_id": "dispatch-1792988593085-twezcc",
+  "agent_type": "general-purpose",
+  "budget": 300000,
+  "used": 23126,
+  "peak_context": 49656,
+  "warned": false,
+  "exceeded": false,
+  "last_updated": 1792988803169
+}

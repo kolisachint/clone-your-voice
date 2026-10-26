@@ -1,0 +1,10 @@
+{
+  "task_id": "dispatch-1792987860651-3caftf",
+  "agent_type": "explore",
+  "budget": 150000,
+  "used": 5983,
+  "peak_context": 50117,
+  "warned": false,
+  "exceeded": false,
+  "last_updated": 1792987915016
+}

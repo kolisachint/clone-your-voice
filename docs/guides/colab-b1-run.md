@@ -143,6 +143,7 @@ self-test PASS/FAIL, your listening rank, and the `.cyvpack.zip` size.
 | **Drive auth failed** | Run the Drive cell again and approve the popup. With several Google accounts, pick the one that owns the Drive; third-party cookies must be allowed for colab.research.google.com. |
 | **Pin/hash mismatch** (commit differs, or helper sha256 refuses) | Stop. Do not run a mixed-version notebook. Re-open the latest `train_colab.ipynb` from GitHub and check the pin (§2). |
 | **CUDA out of memory** | Lower `BATCH_SIZE` (try 4) in the settings cell and re-run. |
+| **Train fails: `Key backend: 'module://matplotlib_inline...'`** | Fixed Oct 2026 in `cyv_colab.run_and_sync` (forces headless `Agg` in Applio subprocesses). Re-open the latest notebook from GitHub and re-run from the top. |
 | **Preprocess/extract/train silently unfinished** | Applio's `core.py` exits 0 even on failure — the notebook checks for output files instead. Scroll up in that cell's output for the real error. |
 | **Self-test FAIL** | Do not use the pack. Improve the recordings (see [recording.md](recording.md)) or change epochs, and train again. |
 | **Checkpoint sample-rate clash** | You resumed with a different `SAMPLE_RATE` than the Drive checkpoints. Use the same value, or delete that voice's `checkpoints/` folder to start over. |

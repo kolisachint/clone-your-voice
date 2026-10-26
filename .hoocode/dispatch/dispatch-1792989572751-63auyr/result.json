@@ -1,0 +1,16 @@
+{
+  "summary": "Status: complete.\n\nWhat I did (worktree `/Users/sachinkoli/.hoocode/worktrees/clone-your-voice/docs-mac`, branch `agent/docs-mac`, uncommitted — nothing committed or pushed):\n\n- Verified every claim against the benchmark files before editing: `B0-clean-install.md` (~81 s, one venv, Python 3.12), `B2-memory.md` (1.35 GB, ~1.5–1.8 GB extrapolated), `B3-latency.md` (1.4 + 0.4 + 0.2 ≈ 2.0 s, ≤1.5 s missed; SDPA fine on 27.2), `audioseal-mps.md` (detect 4.5× faster on CPU, Opus 32k prob 1.0), `setup-m1.md` (uv path, no brew; `uv lock` drifts), `detect.md` (M3 plumbing in, numbers missing). Confirmed CI lives at `.github/workflows/ci.yml` and macOS socket tests exist in `tests/test_daemon_client.py`.\n\nFiles changed:\n- `README.md:6-7` — status note now says validated on Apple Silicon Mac (M1, macOS 27.2), training still needs Colab T4; links to DESIGN §11 and benchmarks. No performance targets, per repo rule.\n- `docs/DESIGN.md` — top status line (B0/B2/B3 done on M1, B1 still needs T4); §3 provisional-targets line updated (memory fine, ≤1.5 s missed, targets stay out of README); §11 heading now covers M1 Mac; new \"Mac validation\" findings entry with B0/B2/B3/socket/AudioSeal/setup outcomes and benchmark links; M3 `watermark detect` recorded as shipped; CI line changed from parked to active; \"Next\" list rewritten to remaining work (B1, with-voice B2/B3, `cyv doctor` on real `~/.cyv`, daemon serve path).\n\nVerified: `grep` for \"not yet validated\" / \"not yet been validated\" / \"parked\" / \"needs an Apple Silicon Mac\" across `README.md` and `docs/` returns nothing. Diff is 2 files, +15/−7, docs-only.\n\nNot verified: no test run — docs-only change, none needed.",
+  "files_changed": [
+    "/Users/sachinkoli/.hoocode/worktrees/clone-your-voice/docs-mac/README.md",
+    "/Users/sachinkoli/.hoocode/worktrees/clone-your-voice/docs-mac/docs/DESIGN.md"
+  ],
+  "confidence": 0.9,
+  "status": "complete",
+  "usage": {
+    "input": 61722,
+    "output": 6662,
+    "cacheRead": 207436,
+    "cacheWrite": 0,
+    "cost": 0.007919472
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "summary": "complete\n\nM3 `cyv watermark detect` is implemented and tested in the worktree, left uncommitted.\n\nWhat I found and did: the worktree already held uncommitted partial work (daemon handler, client, protocol doc, CLI command, most tests, benchmark stub). I completed and repaired it:\n\n- `src/cyvd/server/pipeline.py` — kept a single `Pipeline.detect(wav)` (decode_wav + watermarker.detect + message_is_cyv, no voice); removed a duplicated import and a duplicated second `detect` that wrongly included `\"ok\"`.\n- `src/cyvd/server/main.py` — `detect` op handler consumes the binary frame under the GPU-worker queue like `convert` and replies `{\"ok\", True, prob, message, crc_ok, backend}` (JSON only).\n- `src/cyv/protocol.py`, `src/cyv/client/core.py` (`Client.detect`), `src/cyv/cli/main.py` (`watermark detect <file>`, `-` = stdin, `_is_pcm16_mono_wav` fast path + `ffmpeg.to_wav`, exact output strings from spec, `--json`) — verified present and correct; parser group was already wired.\n- `tests/test_daemon_client.py` — detect round-trip + bad-audio (pre-existing); removed my accidental duplicate copies.\n- `tests/test_cli.py` — added `detect` to FakeClient; fixed `test_watermark_detect_stdin` (patching `sys.stdin.buffer` fails under pytest's `DontReadFromInput`; now replaces `sys.stdin` with a TextIOWrapper).\n- `tests/test_components.py` — updated the two `Pipeline.detect` unit tests to the no-`\"ok\"` return convention.\n- `docs/benchmarks/detect.md` — stub existed (Apple M1, macOS 27.2, provisional); added a labeled plumbing-only smoke number (~0.1 ms/call with FakeWatermarker, 10 s clip — not model inference).\n\nFiles changed (all uncommitted on `agent/m3-detect`, base `3e5c009`): cli/main.py, client/core.py, protocol.py, server/main.py, server/pipeline.py, tests test_cli/test_components/test_daemon_client, new docs/benchmarks/detect.md. No commit created; parent tree untouched.\n\nVerified in the worktree venv (Python 3.14, no torch): `ruff check .` passes, `ruff format --check .` passes (77 files), `python -m pytest --ignore=tests/test_packs.py` → 158 passed, 6 skipped (torch-gated). Thin CLI confirmed torch-free; `watermark detect --help` works.\n\nNot verified: `tests/test_packs.py` cannot even be collected without torch (pre-existing unconditional top-level `import torch`, untouched by this task); real AudioSeal/Perth detect latency on Apple Silicon is still provisional — needs MPS measurement per the benchmark note.",
+  "files_changed": [
+    "/Users/sachinkoli/.hoocode/worktrees/clone-your-voice/m3-detect/src/cyvd/server/pipeline.py",
+    "/Users/sachinkoli/.hoocode/worktrees/clone-your-voice/m3-detect/src/cyvd/server/main.py",
+    "/Users/sachinkoli/.hoocode/worktrees/clone-your-voice/m3-detect/tests/test_daemon_client.py",
+    "/Users/sachinkoli/.hoocode/worktrees/clone-your-voice/m3-detect/tests/test_cli.py",
+    "/Users/sachinkoli/.hoocode/worktrees/clone-your-voice/m3-detect/tests/test_components.py",
+    "/Users/sachinkoli/.hoocode/worktrees/clone-your-voice/m3-detect/docs/benchmarks/detect.md"
+  ],
+  "confidence": 0.9,
+  "status": "complete",
+  "usage": {
+    "input": 315078,
+    "output": 19387,
+    "cacheRead": 1909123,
+    "cacheWrite": 0,
+    "cost": 0.03920344600000001
+  }
+}
