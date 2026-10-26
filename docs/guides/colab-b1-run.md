@@ -10,6 +10,22 @@ instead of repeating.
 
 ## 0. Before you open Colab
 
+Work in **phases**. Each phase re-runs the same notebook with more
+of your recordings, producing better weights each time.
+
+- **Phase 1 (first run): end to end with ~2 minutes.**
+  Proves the whole loop works: record → `dataset prepare` →
+  Colab T4 → pack → import → `say`/`convert` → watermark detect.
+  Expect a rough voice — 2 minutes is a smoke test, not a final clone.
+- **Phase 2 (later): 5 minutes** of same-room, same-setup recordings.
+  Better timbre, fewer artifacts.
+- **Phase 3 (later): 10 minutes**, then the full B1 matrix
+  (2/5/10 min × 100/200/400 epochs) logged in
+  `docs/benchmarks/B1-training.md`. Trim the subsets from one session
+  so only data length varies.
+
+Never mix phases in one dataset: one pack, one session's recordings.
+
 - [ ] Record your voice following [recording.md](recording.md).
   Aim for **10 minutes** of clean speech — you can cut shorter
   2-minute and 5-minute subsets from it later for the matrix.
