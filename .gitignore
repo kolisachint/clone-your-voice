@@ -12,3 +12,5 @@ build/
 *.cyvpack.zip
 *.safetensors
 *.onnx
+
+.hoocode/
