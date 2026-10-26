@@ -1,9 +1,9 @@
-# Recording script — ~10 minutes, in 4 parts, 3 languages
+# Recording script — ~13 minutes, in 7 parts, 3 languages
 
 A ready-to-read script for the [recording guide](recording.md):
-abount 1,400 words, roughly 10 minutes at a natural pace.
-Part 1 is English (~2 min, record first). Parts 2–4 add English story,
-Hindi, and Marathi (~2–3 min each), so the clone learns your voice
+about 1,900 words, roughly 13 minutes at a natural pace.
+Part 1 is English (~1.5 min, record first). Parts 2–7 add more English,
+Hindi, and Marathi (~2 min each), so the clone learns your voice
 in all three languages. (Audio-to-audio conversion works in any
 language; typed `say` in Hindi/Marathi gets validated after the
 Phase 2 voice pack.)
@@ -154,3 +154,118 @@ Sometimes the delay is the best part. Honestly.
 
 तर ही होती माझी मराठी — थोड्या गप्पा, थोडे प्रश्न आणि खूप सारं प्रेम.
 ऐकल्याबद्दल मनापासून आभार!
+
+---
+
+## Part 5 — English, continued (memories and plans)
+
+Let me take you back to my childhood summers. Every May, the moment
+school closed, we packed our bags for my grandparents' village.
+No air conditioning, one noisy ceiling fan, and the sweetest mangoes
+you have ever tasted, straight from the tree behind the house.
+
+My cousin and I had one job: guard the mangoes from the parrots.
+We failed every single day. The parrots always won. We would sit under
+the tree anyway, sticky fingers and all, arguing about which one of us
+had eaten more. He always lied. I always knew.
+
+Evenings belonged to the terrace. The whole family carried steel plates
+of dinner upstairs, and grandfather told stories while the power cut
+came and went. His ghost stories were terrible — we always guessed
+the ending — but his laugh afterwards made up for everything.
+
+Then the monsoon arrived, and everything changed colour overnight.
+Brown fields turned green in a week. We folded paper boats and raced
+them in the flooded lane outside the house. Mine always sank first.
+Always. Nobody let me forget it.
+
+Okay, now let me convince you of something. Everyone should learn
+to swim. Not because it is great exercise, although it is. Because water
+is the only place your phone cannot follow you. One hour in a pool is
+one hour of true freedom. When was the last time nobody could reach
+you for a whole hour? Think about it. Exactly.
+
+And speaking of plans — Goa. December. Four of us, five days, one beach
+shack we found online that is probably too good to be true. We need to
+book train tickets before they vanish, split the costs honestly this time,
+and promise each other one thing: no office email after sunset.
+Can we do that? We can. We must. No excuses this year.
+
+Growing up means realising that the best days were the simplest ones:
+mangoes, cousins, rain, and nowhere to be. Forty years from now I will
+still remember that terrace, that fan, that laugh. Some memories are not
+stored in the head. They are stored in the skin.
+
+---
+
+## Part 6 — हिंदी, आगे (त्योहार, सफ़र और ज़िंदगी)
+
+अब बात करते हैं त्योहारों की। दिवाली से एक महीना पहले ही घर में
+सफ़ाई शुरू हो जाती है। माँ कहती हैं कि लक्ष्मी साफ़-सुथरे घर में आती हैं।
+पिताजी पुरानी रद्दी निकालते हैं, और मैं हर साल वादा करता हूँ कि इस बार
+पटाख़े नहीं जलाऊँगा — और हर साल वादा तोड़ देता हूँ।
+
+धनतेरस को बाज़ार में इतनी भीड़ होती है कि पैर रखने की जगह नहीं मिलती।
+काजू-कतली की दुकान पर लंबी लाइन, जलेबी की कड़ाही से उठती खुशबू,
+और बच्चों के हाथों में नए कपड़े। शाम को दिए जलते हैं, और पूरा मोहल्ला
+रोशनी से नहा उठता है। ऐसे वक़्त लगता है कि अँधेरा कभी था ही नहीं।
+
+गाँव जाने वाली ट्रेन का अपना ही मज़ा है। स्लीपर बर्थ पर चादर बिछाओ,
+खिड़की से बाहर देखो — सरसों के पीले खेत, भैंसों के झुंड, छोटे-छोटे स्टेशन
+जहाँ चाय वाला 'चाय-चाय' चिल्लाता है। बगल वाली सीट पर कोई अजनबी
+अपनी पूरी जीवन-कहानी सुना देता है। तीन घंटे का सफ़र तीन मिनट में कट जाता है।
+
+ऑफिस में कल बड़ी प्रेज़ेंटेशन है। बॉस ने कहा कि यह प्रोजेक्ट कंपनी की
+किस्मत बदल देगा। ज़िम्मेदारी मेरे कंधों पर है, और सच कहूँ तो थोड़ा डर
+भी लग रहा है। रात भर स्लाइड्स ठीक कीं, आँकड़े दो बार जाँचे। अब जो होगा
+देखा जाएगा — मेहनत में कोई कसर नहीं छोड़ी।
+
+पिछले महीने चचेरे भाई की शादी थी। ढोल की थाप पर बारात नाची,
+बूढ़े भी थिरक उठे। दादी ने दूल्हे को आशीर्वाद दिया — 'खुश रहो,
+आबाद रहो।' विदाई के वक़्त सबकी आँखें नम थीं। खुशी और उदासी एक
+साथ — शादी में ही ऐसा होता है।
+
+बारिश में गरम पकौड़ों का क्या कहना! अदरक वाली चाय, खिड़की से टपकती
+बूँदें, और रेडियो पर पुराना गाना — 'रिमझिम गिरे सावन।' कुछ पल ऐसे होते
+हैं जिन्हें जी भर के जी लेना चाहिए। ज़िंदगी रोज़-रोज़ ऐसे तोहफ़े नहीं देती।
+
+---
+
+## Part 7 — मराठी, पुढे (सण, प्रवास आणि आठवणी)
+
+आता बोलूया सणांबद्दल. गणपती आले की घराचं रूपच बदलतं. सकाळी आरती,
+संध्याकाळी प्रसाद — उकडीचे मोदक, खोबऱ्याची वडी. ढोल-ताशांच्या गजरात
+मिरवणूक निघते, आणि 'गणपती बाप्पा मोरया'च्या घोषणांनी आकाश दुमदुमतं.
+विसर्जनाच्या दिवशी मन जड होतं, पण पुढच्या वर्षीची वाट बघण्यातच
+वेगळी गोडी असते.
+
+एसटी बसचा प्रवास हा एक वेगळाच अनुभव आहे. खिडकीची सीट मिळाली की
+अर्धी मजा तिथेच. घाटात वळणं घेत बस वर चढते, कंडक्टर ओरडतो —
+'तिकिटं काढा, तिकिटं!' आजूबाजूला शेतं, डोंगर, छोटी छोटी गावं.
+कोणीतरी शेजारून भजीचा पुडा पुढे करतं. अनोळखी माणसं दोन तासांत
+मित्र होतात — हाच महाराष्ट्राच्या मातीचा गुण.
+
+आईच्या हातच्या पुरणपोळीची सर जगात कशालाच नाही. सोबत तूप, कटाची
+आमटी, आणि तोंडी लावायला ठेचा-लोणचं. 'आणखी एक घे' म्हणत ती
+वाढतच राहते. पोट भरतं, पण मन भरत नाही. अशा जेवणानंतर दुपारची
+झोप ही स्वर्गसुखच.
+
+ऑफिसमध्ये उद्या मोठं प्रेझेंटेशन आहे. साहेब म्हणाले की हा प्रोजेक्ट
+कंपनीचं भवितव्य बदलेल. जबाबदारी माझ्या खांद्यावर आहे, आणि खरं सांगू
+तर थोडी धाकधूक पण आहे. रात्रभर स्लाइड्स नीट केल्या, आकडे दोनदा
+तपासले. आता जे होईल ते होईल — मेहनतीत काही कमी ठेवली नाही.
+
+परवा शिवाजी मंदिरात नाटक पाहिलं. तीन तास कसे गेले कळलंच नाही.
+शेवटच्या सीनला टाळ्यांचा कडकडाट झाला — कलाकारांच्या डोळ्यांत पाणी
+होतं. चांगली कला माणसाला श्रीमंत करते, खिशाने नाही तर मनाने.
+
+वीस डिसेंबरला बाबांचा साठावा वाढदिवस आहे. संध्याकाळी सहा वाजता हॉल
+बुक केलाय, शंभर लोकांची यादी तयार आहे. केक, फुलं, जुन्या आठवणींचा
+अल्बम — सगळं ठरलंय. फक्त एकच बाकी आहे — बाबांना काहीही सांगायचं
+नाही. सरप्राइज!
+
+शेवटी थोडी माहिती, शांतपणे. माझा फोन नंबर आहे नऊ आठ सात सहा
+पाच चार तीन दोन एक शून्य. पत्ता: फ्लॅट चार ब, दुसरा मजला, ग्रीन पार्क
+अपार्टमेंट्स, पुणे — चार एक एक शून्य शून्य एक. आज आहे सव्वीस ऑक्टोबर,
+दोन हजार सव्वीस. बैठक उद्या सकाळी साडेदहा वाजता, खोली नंबर बारा.
+कृपया पाच मिनिटं लवकर या.
