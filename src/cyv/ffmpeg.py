@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import struct
 import subprocess
 import tempfile
 from collections.abc import Sequence
@@ -64,27 +65,68 @@ def encode(wav: bytes, preset: Preset) -> bytes:
         return dst.read_bytes()
 
 
+def _wav_data_bytes(wav: bytes) -> int:
+    """Size of the PCM payload, or 0 if the bytes are not a playable WAV."""
+    if len(wav) < 44 or wav[:4] != b"RIFF" or wav[8:12] != b"WAVE":
+        return 0
+    i = wav.find(b"data", 12)
+    if i < 0 or i + 8 > len(wav):
+        return 0
+    (size,) = struct.unpack_from("<I", wav, i + 4)
+    return size if i + 8 + size <= len(wav) else 0
+
+
+def _is_mp4(data: bytes) -> bool:
+    """True for MP4-family containers (m4a/mp4/mov): `ftyp` box at offset 4."""
+    return len(data) > 8 and data[4:8] == b"ftyp"
+
+
 def to_wav(data: bytes) -> bytes:
     """Transcode untrusted audio to 16-bit mono PCM WAV (no resampling).
 
-    The input is fed on stdin with only the `pipe` protocol allowed, so a playlist or concat
-    script inside it cannot make ffmpeg open local files or network URLs.
-    """
+    Streamable formats are fed on stdin with only the `pipe` protocol allowed,
+    so a playlist or concat script inside them cannot make ffmpeg open local
+    files or network URLs. MP4-family input (e.g. Voice Memos `.m4a`) needs a
+    seekable input — from a pipe the demuxer fails and ffmpeg exits 0 with an
+    empty file — so it is decoded from a temp file instead. The temp file is
+    only used when the bytes carry the `ftyp` magic, never for playlists, and
+    `http`/`https` stay off the protocol whitelist either way."""
     with tempfile.TemporaryDirectory(prefix="cyv-") as td:
         dst = Path(td, "out.wav")
-        run(
-            [
-                "-protocol_whitelist",
-                "pipe",
-                "-i",
-                "pipe:0",
-                "-vn",
-                "-ac",
-                "1",
-                "-c:a",
-                "pcm_s16le",
-                str(dst),
-            ],
-            stdin_data=data,
-        )
-        return dst.read_bytes()
+        if _is_mp4(data):
+            src = Path(td, "in.m4a")
+            src.write_bytes(data)
+            run(
+                [
+                    "-protocol_whitelist",
+                    "file,pipe",
+                    "-i",
+                    str(src),
+                    "-vn",
+                    "-ac",
+                    "1",
+                    "-c:a",
+                    "pcm_s16le",
+                    str(dst),
+                ]
+            )
+        else:
+            run(
+                [
+                    "-protocol_whitelist",
+                    "pipe",
+                    "-i",
+                    "pipe:0",
+                    "-vn",
+                    "-ac",
+                    "1",
+                    "-c:a",
+                    "pcm_s16le",
+                    str(dst),
+                ],
+                stdin_data=data,
+            )
+        out = dst.read_bytes()
+    if _wav_data_bytes(out) == 0:
+        raise FfmpegError("ffmpeg decoded no audio from the input")
+    return out

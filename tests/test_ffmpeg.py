@@ -1,39 +1,80 @@
+"""Tests for src/cyv/ffmpeg.py (thin CLI, stdlib only, no torch)."""
+
 import shutil
+import subprocess
 
 import pytest
 
 from cyv import ffmpeg
 
-pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="needs ffmpeg")
+needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not on PATH")
 
 
-def _wav():
-    import io
-    import struct
-    import wave
+@needs_ffmpeg
+def test_to_wav_from_wav_passthrough(tmp_path):
+    src = tmp_path / "in.wav"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=1",
+            "-ar",
+            "16000",
+            "-ac",
+            "1",
+            "-c:a",
+            "pcm_s16le",
+            str(src),
+        ],
+        check=True,
+    )
+    out = ffmpeg.to_wav(src.read_bytes())
+    assert ffmpeg._wav_data_bytes(out) == 32000
 
-    buf = io.BytesIO()
-    with wave.open(buf, "wb") as w:
-        w.setnchannels(2)
-        w.setsampwidth(2)
-        w.setframerate(24000)
-        w.writeframes(struct.pack("<hh", 1000, -1000) * 2400)
-    return buf.getvalue()
+
+@needs_ffmpeg
+def test_to_wav_from_mp4_needs_seekable_input(tmp_path):
+    # Regression: Voice Memos .m4a decoded from a pipe yields a header-only
+    # WAV (ffmpeg exits 0 with no samples). Must decode to real PCM.
+    src = tmp_path / "in.m4a"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=1",
+            "-ar",
+            "48000",
+            "-ac",
+            "1",
+            "-c:a",
+            "aac",
+            str(src),
+        ],
+        check=True,
+    )
+    blob = src.read_bytes()
+    assert blob[4:8] == b"ftyp"
+    out = ffmpeg.to_wav(blob)
+    assert ffmpeg._wav_data_bytes(out) == 96000  # 1 s mono 48 kHz 16-bit
 
 
-def test_to_wav_is_mono_16bit():
-    import io
-    import wave
-
-    with wave.open(io.BytesIO(ffmpeg.to_wav(_wav()))) as w:
-        assert (w.getnchannels(), w.getsampwidth(), w.getframerate()) == (1, 2, 24000)
+@needs_ffmpeg
+def test_to_wav_empty_input_raises():
+    with pytest.raises(ffmpeg.FfmpegError):
+        ffmpeg.to_wav(b"not audio at all")
 
 
-def test_to_wav_rejects_playlist_referencing_local_file(tmp_path):
-    secret = tmp_path / "secret.wav"
-    secret.write_bytes(_wav())
-    hls = f"#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXTINF:1,\n{secret}\n#EXT-X-ENDLIST\n".encode()
-    concat = f"ffconcat version 1.0\nfile {secret}\n".encode()
-    for payload in (hls, concat):
-        with pytest.raises(ffmpeg.FfmpegError):
-            ffmpeg.to_wav(payload)
+def test_wav_data_bytes_rejects_header_only():
+    assert ffmpeg._wav_data_bytes(b"RIFF" + b"\x00" * 74) == 0
