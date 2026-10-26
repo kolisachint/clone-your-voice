@@ -44,7 +44,7 @@ Let anyone clone **their own** voice cheaply: train once on Colab, then run `cyv
    - Install with a **pinned constraints file**.
    - Mount Drive and upload `dataset.zip`.
    - Run preprocess → extract → train → index, with checkpoints saved to Drive so a disconnect can resume.
-   - **Self-test:** render a fixed sentence, show a loss summary, PASS/FAIL.
+   - **Self-test:** convert a short clip from your own dataset, show a loss summary, PASS/FAIL.
    - Export `<name>.cyvpack.zip` to Drive.
    - Clear failure messages for: no GPU, quota exhausted, Drive auth failed.
 4. **Download** the pack from Drive in the browser. v1 has no Drive API integration.

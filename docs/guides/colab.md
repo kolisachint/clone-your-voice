@@ -57,7 +57,7 @@ If Colab disconnects, open the notebook again, mount Drive, and run the cells ag
 
 ### 8. Check the self-test
 
-At the end, the notebook renders a fixed sentence and shows a loss summary. It prints **PASS** or **FAIL**.
+At the end, the notebook converts a short clip from your own dataset and shows a loss summary. It prints **PASS** or **FAIL**.
 
 - **PASS:** continue to the export step.
 - **FAIL:** do not use this voice pack. Try again with more or cleaner recordings, or a different number of training epochs. See [recording.md](recording.md).
