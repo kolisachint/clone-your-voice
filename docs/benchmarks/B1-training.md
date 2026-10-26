@@ -7,7 +7,7 @@ notebook + cyv @ 0623698 (MPLBACKEND fix live).
 | Run | Data | Epochs | Wall clock | Self-test | Listening rank | Pack |
 |---|---|---|---|---|---|---|
 | Phase 1 (`sachinkoli`) | 1.2 min usable (73 s, 1 clip, -25.9 dBFS, 0% clipping) | 100 | not recorded | PASS (exported) | Robotic/thin, but recognisably the speaker. Expected: smoke test. | 62 MB |
-| Phase 2 (`sachinkoli2`, planned) | 15.4 min usable (16.5 min raw, 2 clips, -22.3 dBFS, 0% clipping, 33% silence) | 200 (TBD) | pending | pending | pending | pending |
+| Phase 2 (`sachinkoli2`) | 15.4 min usable (16.5 min raw, 2 clips, -22.3 dBFS, 0% clipping, 33% silence) | 200 | overnight run (exact time not recorded); batch 8→16 mid-run doubled pace (55→28 steps/epoch) | exported (gate status unconfirmed) | Mac A/B pending — user listening | 190 MB |
 
 Notes:
 
