@@ -1,10 +1,12 @@
-# Recording script — ~10 minutes, in 4 parts
+# Recording script — ~10 minutes, in 4 parts, 3 languages
 
 A ready-to-read script for the [recording guide](recording.md):
-about 1,400 words, roughly 10 minutes at a natural pace.
-Each Part works on its own — Part 1 alone is about 2 minutes,
-Parts 1–2 about 5 — so you can stop when your voice tires
-and continue another day in the same room and setup.
+abount 1,400 words, roughly 10 minutes at a natural pace.
+Part 1 is English (~2 min, record first). Parts 2–4 add English story,
+Hindi, and Marathi (~2–3 min each), so the clone learns your voice
+in all three languages. (Audio-to-audio conversion works in any
+language; typed `say` in Hindi/Marathi gets validated after the
+Phase 2 voice pack.)
 
 How to use it:
 
@@ -13,6 +15,7 @@ How to use it:
 - Pause a few seconds between sections.
 - Record each Part as its own file
   (4 Voice Memos, or 4 takes in any recorder).
+  Part 1 is done — record Parts 2–4 next.
 - Keep the mic distance, room, and energy the same across Parts.
 
 Why four moods: everyday chat, an emotional story, questions and
@@ -77,54 +80,77 @@ Sometimes the delay is the best part. Honestly.
 
 ---
 
-## Part 3 — Questions and feelings (expressive)
+## Part 3 — हिंदी (बातचीत, भावनाएँ और सवाल)
 
-Now some questions, because apparently I need to ask more questions.
+नमस्ते! अब मैं थोड़ी देर हिंदी में बात करूँगा। सुबह की शुरुआत हमेशा
+एक कप गरम चाय से होती है। अख़बार पढ़ते-पढ़ते पता ही नहीं चलता कि
+वक़्त कहाँ निकल जाता है।
 
-Where did I put my keys? Have you seen my blue notebook?
-Why is it always the small things that disappear?
-Can you believe the price of tomatoes these days?
-Thirty rupees a kilo last month, fifty this week!
-When will it stop raining? Should we just cancel the picnic?
-Who ate the last piece of cake? Be honest. Was it you?
+ऑफिस जाने के लिए मैं अक्सर ऑटो-रिक्शा लेता हूँ। सड़क पर बहुत ट्रैफ़िक
+रहता है, और हॉर्न की आवाज़ें कानों में गूँजती रहती हैं। कभी-कभी लगता
+है कि पैदल चलना ही बेहतर है — कम से कम ताज़ी हवा तो मिलती है।
 
-And now, some excitement. Guess what!
-I got the job! I actually got it!
-They called this morning and I nearly dropped the phone.
-I'm so happy I could dance right here in this room.
+दोपहर के खाने में आज दाल, रोटी, सब्ज़ी और थोड़ा-सा अचार था।
+माँ कहती हैं कि घर का खाना ही असली ताक़त देता है। यह बात बिल्कुल
+सही है — बाहर का खाना दो दिन में ही भारी लगने लगता है।
 
-But wait, I also feel nervous. What if I'm not ready?
-What if the work is harder than I expect?
-No. Stop. Deep breath. I earned this.
-Everything will be fine. Everything is fine.
+शाम को दोस्तों के साथ क्रिकेट मैच देखा। आख़िरी ओवर में पूरे बारह रन
+चाहिए थे, और सबकी साँसें अटकी हुई थीं। छक्का लगते ही पूरा कमरा
+खुशी से चिल्ला उठा! ऐसा लग रहा था जैसे हमने ही मैच जीत लिया हो।
 
-Oh no, did I leave the stove on? Let me think.
-No, I turned it off. I definitely turned it off.
-Did I? Yes. I'm sure. Moving on.
+अरे, मेरी चाबियाँ कहाँ रख दीं? फ़ोन भी नहीं मिल रहा। ज़रा देखना,
+क्या चार्जर बैग में है? अगर ट्रेन छूट गई तो बहुत बड़ी ग़लती हो जाएगी।
+कल की परीक्षा की तैयारी भी अभी बाक़ी है — ज्ञान तो मेहनत से ही मिलता है।
+
+रात को बारिश शुरू हो गई। बूँदों की आवाज़ सुनते-सुनते मैंने खिड़की से
+बाहर देखा — सड़कें भीग रही थीं, और स्ट्रीट-लाइट की रोशनी में पानी चमक
+रहा था। ऐसे मौसम में पुराने गाने सुनने का अपना ही मज़ा है।
+
+फ़ोन पर पिताजी से बात हुई। उन्होंने कहा कि सेहत का ख़्याल रखो और
+वक़्त पर खाना खाओ। उनकी आवाज़ में वही पुरानी फ़िक्र थी, जो हमेशा
+अच्छी लगती है। मैंने वादा किया कि इस रविवार को ज़रूर गाँव आऊँगा।
+
+एक, दो, तीन, चार, पाँच — गिनती करते-करते मुझे नींद आने लगी।
+पचास रुपये की टिकट, सौ रुपये का नोट, हज़ारों तारे आसमान में।
+कुछ सपने सच होते हैं, कुछ सिर्फ़ सपने ही रहते हैं।
+
+तो यह थी मेरी हिंदी — थोड़ी हँसी, थोड़ी फ़िक्र, और बहुत सारा अपनापन।
+अगली बार मराठी में मिलते हैं। धन्यवाद!
 
 ---
 
-## Part 4 — Calm information (slow, steady, clear)
+## Part 4 — मराठी (गप्पा, प्रश्न आणि शांत वाचन)
 
-Last part. Just steady reading, nice and calm.
+नमस्कार! आता मी थोडा वेळ मराठीत बोलेन. सकाळची सुरुवात नेहमी
+एक कप गरम चहाने होते. चहा पिता पिता पेपर वाचायला खूप मजा येते.
 
-My phone number is nine eight seven six five four three two one zero.
-My address is flat four B, second floor, Green Park Apartments,
-Maple Street, Pune, four one one zero zero one.
-Today's date is the twenty sixth of October, twenty twenty six.
-The meeting is at half past three in the afternoon, room number twelve.
+ऑफिसला जायला मी बहुतेक वेळा रिक्षा घेतो. रस्त्यावर प्रचंड ट्रॅफिक
+असतो, आणि हॉर्नच्या आवाजाने कान बधिर होतात. कधी कधी वाटतं की
+चालत जाणंच बरं — निदान मोकळी हवा तरी मिळते.
 
-The quick brown fox jumps over the lazy dog.
-Pack my box with five dozen liquor jugs.
-How vexingly quick daft zebras jump.
-Six juicy mangoes, three ripe papayas, two green coconuts.
-The temperature today is twenty nine degrees, humid, with light wind.
+दुपारच्या जेवणात आज वरण, भात, भाजी आणि थोडंसं लोणचं होतं.
+आई म्हणते की घरचं जेवणच खरी शक्ती देतं. हे अगदी खरं आहे —
+बाहेरचं जेवण दोन दिवसांतच जड वाटायला लागतं.
 
-Let me count slowly. One, two, three, four, five,
-six, seven, eight, nine, ten.
-Monday, Tuesday, Wednesday, Thursday, Friday,
-Saturday, Sunday. January through December, all twelve months.
+शनिवारी मित्रांसोबत सिंहगडावर जायचा बेत आहे. सकाळी लवकर निघायचं,
+वर जाऊन कांदा-भजी खायची आणि किल्ला पाहायचा. पावसाळ्यात तिथलं
+धुकं आणि हिरवळ बघण्यासारखी असते. कॅमेरा चार्ज करायला विसरू नकोस!
 
-And that's the end. Ten minutes of my voice.
-Thank you for listening, future computer.
-Please be kind with it.
+अरे, माझ्या चाव्या कुठे ठेवल्या? फोन पण सापडत नाहीये. बॅगमध्ये चार्जर
+आहे का जरा बघ. जर ट्रेन चुकली तर खूप मोठी चूक होईल. उद्याच्या
+परीक्षेची तयारी पण बाकी आहे — ज्ञान हे मेहनतीनेच मिळतं.
+
+संध्याकाळी आईचा फोन आला. ती म्हणाली की तब्येतीची काळजी घे आणि
+वेळेत जेव. तिच्या आवाजातली तीच जुनी काळजी होती, जी नेहमी छान वाटते.
+मी शब्द दिला की या रविवारी नक्की गावी येईन.
+
+एक, दोन, तीन, चार, पाच — मोजता मोजता मला झोप यायला लागली.
+वीस रुपयांचं तिकीट, शंभराची नोट, हजारो चांदण्या आकाशात. झाडांची पानं
+वाऱ्यावर हलत होती, आणि मांजर खिडकीत बसून बाहेर बघत होतं.
+
+कामाच्या गडबडीत माणूस स्वतःसाठी वेळ काढायला विसरतो. पण दिवसातली
+दहा मिनिटं शांत बसणं, डोळे मिटून दीर्घ श्वास घेणं — याने मन खूप
+हलकं होतं. उद्या पुन्हा नवी सुरुवात, नवी उमेद.
+
+तर ही होती माझी मराठी — थोड्या गप्पा, थोडे प्रश्न आणि खूप सारं प्रेम.
+ऐकल्याबद्दल मनापासून आभार!
