@@ -13,6 +13,10 @@ Every new dependency needs a row here in the same pull request.
 | misaki (`misaki[en]`) | English text front end for Kokoro | Apache-2.0 | verify |
 | espeak-ng | Pronunciation of out-of-dictionary words | GPL-3.0 | Stated in DESIGN.md. Runtime dependency only (see below) |
 | espeakng-loader | Loads espeak-ng for misaki | verify | Not stated in DESIGN.md |
+| soxr | Audio resampling | verify | Daemon dependency (`soxr>=0.5` in pyproject), not stated in DESIGN.md |
+| spaCy | English text pipeline used by the Kokoro/misaki front end | verify | Installed by `cyv setup` via `misaki[en]`, not stated in DESIGN.md |
+| preshed | Hash tables backing spaCy | verify | Transitive dependency via misaki → spaCy (pinned in `src/cyv/daemon-constraints.txt`), not stated in DESIGN.md |
+| en_core_web_sm | English model for the spaCy pipeline | verify | Fetched at setup (see DESIGN.md §11), not stated in DESIGN.md |
 | AudioSeal (Meta) | Default watermark | MIT | Stated in DESIGN.md (ADR-004) |
 | Resemble Perth | Fallback watermark | MIT | Stated in DESIGN.md (§6.3) |
 | PyTorch (`torch`) | Model runtime | BSD-3-Clause | verify |
