@@ -13,6 +13,7 @@ instead of repeating.
 - [ ] Record your voice following [recording.md](recording.md).
   Aim for **10 minutes** of clean speech — you can cut shorter
   2-minute and 5-minute subsets from it later for the matrix.
+  A ready-to-read 4-part script is [here](recording-script.md).
 - [ ] On your Mac, make the dataset:
   `cyv dataset prepare <your-recordings-folder> -o dataset.zip`.
 - [ ] Read the one-line consent statement it shows and type it only if it is

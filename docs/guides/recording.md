@@ -29,7 +29,9 @@ A good recording is the most important part of a good voice clone. Aim for **5 t
 
 ## Sentences to read
 
-Read these aloud, one at a time. You do not need to read them in order, and you can read a few twice in different moods.
+For a full ~10-minute script in four moods (chat, story, questions, calm facts), use the [recording script](recording-script.md) — each part stands alone, so you can record 2, 5, or 10 minutes across sittings.
+
+Or read these aloud, one at a time. You do not need to read them in order, and you can read a few twice in different moods.
 
 1. The kettle started whistling just as the rain began to fall.
 2. Could you pass me the blue notebook from the top shelf, please?
