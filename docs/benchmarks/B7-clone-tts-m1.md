@@ -62,6 +62,9 @@ Working setup (euler solver, 16 steps, duration from a text-length ratio):
 | 2 | 44.2 | 5.75 | 7.7 |
 | 3 | 35.7 | 5.61 | 6.4 |
 
+Same setup with **32 steps** (sentence 2 only): 73.1 s for 5.75 s of audio
+(RTF 12.7). The Colab run used 32 steps too.
+
 - Model load: 0.5 s.
 - MLX peak memory about 2.6 to 2.8 GB; process peak footprint about 3.3 GB.
 - Swap was 2.3 GB used at the start of the first runs and about 1.0 GB later.
@@ -170,9 +173,15 @@ Not yet added to `docs/licenses.md`.
   working numbers rely on a hand-made duration estimate and a local patch to
   a third-party file, neither of which would ship as is.
 - Quality: in a Colab blind test (3 sentences, one listener, "very close"),
-  F5 followed by `cyv convert` ranked first. The Mac-made F5 files and **all
-  Chatterbox Mac files have not been listened to**. The Chatterbox files were
-  only checked for length and loudness.
+  F5 followed by `cyv convert` ranked first.
+- Mac listening (same listener, sentence 2 only, after `cyv convert`):
+  - 16 steps: "close to the Colab winner but not that good", with a
+    clear sense of loss.
+  - 32 steps: "very close to what I wanted".
+  - So most of the loss came from cutting steps to save time, not from
+    running on the Mac. One sentence, one listener.
+- The Chatterbox Mac files have **not been listened to**. They were only
+  checked for length and loudness.
 - Kokoro is a plain TTS voice that is then converted. The F5 and Chatterbox
   models clone directly, so they could skip or add to the convert step. This
   note does not decide that; it only measures speed and memory.
@@ -195,6 +204,9 @@ Not yet added to `docs/licenses.md`.
   later" work, and only after fixing its duration handling. Chatterbox is not
   a good fit for 8 GB Macs. Neither should replace Kokoro as the default
   `say` voice. Cloned TTS stays a Colab or bigger-Mac option for now.
-- **Before relying on this:** listen to the Mac-made F5 and Chatterbox
-  files, rerun with a quiet machine (nothing else open), and check the F5
+- **Quality vs speed on the Mac:** 32 steps sounds right but takes about
+  73 s for a 5.75 s line (RTF about 13). 16 steps halves the time and loses
+  audible quality.
+- **Before relying on this:** listen to all three sentences at 32 steps,
+  rerun with a quiet machine (nothing else open), and check the F5
   weight license before shipping anything.
