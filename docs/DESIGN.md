@@ -300,6 +300,8 @@ Findings that refine the design:
   - AudioSeal's own loader uses unsafe unpickling. That's acceptable only because its checkpoints are sha256-pinned in `src/cyv/models.toml`.
 - **voice.json `sha256`** records the uploaded `model.pth`. The installed file is the sanitized re-save.
 - **CI** is active at `.github/workflows/ci.yml`: ruff, pytest on macos-14, and notebook pin checks.
+- **Quality gap is at inference, not training (Oct 2026, first real pack `sachinkoli2`):** `cyv convert` on the user's own recording sounds as good as the Colab self-test, so export, import and sanitize lose nothing. `cyv say` sounds worse because Kokoro sets the delivery and RVC keeps it; the best `--pitch` (-6) still was not "me". Summary for users: `docs/guides/sounding-like-you.md`.
+- **B7 (voice-cloning TTS, experiment, outside this design):** F5-TTS followed by `cyv convert` beat Kokoro `say` blind on all 3 sentences. On an 8 GB M1, F5 (MLX) fits (~3.3 GB) but takes ~70 s per sentence at the 32 steps that sound right; Chatterbox needs 8.4 GB of GPU memory and is ruled out. Tone follows the reference clip. Not adopted: it would need ADRs (second TTS, reference clip in the pack) and an F5 weights license check (`docs/benchmarks/B7-clone-tts-m1.md`, `experiments/f5-say/`).
 
-**Next:** B1 on a real Colab T4 (checklist: `docs/guides/colab-b1-run.md`), the with-voice B2/B3 re-run once a Colab-trained pack exists, `cyv doctor` on a real `~/.cyv`, and the daemon serve path (`serve`/`say` through the socket).
+**Next:** decide on B7 (tone test with new reference clips, then an ADR or not), B1 on a real Colab T4 (checklist: `docs/guides/colab-b1-run.md`), the with-voice B2/B3 re-run once a Colab-trained pack exists, `cyv doctor` on a real `~/.cyv`, and the daemon serve path (`serve`/`say` through the socket).
 

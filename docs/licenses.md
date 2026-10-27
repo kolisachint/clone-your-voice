@@ -44,3 +44,18 @@ This project's own code is MIT. The GPL component is not copied into this reposi
 ## Opt-in components (not in v1)
 
 Some components are GPL or non-commercial and must never be in the core package. If they are added later, they go in separate opt-in packages (DESIGN.md §4.6). Examples named in the design: piper1-gpl, F5-TTS weights, XTTS-v2.
+
+## Experiments only (not shipped, not installed by cyv)
+
+Used by `experiments/` and benchmark B7. The user installs them by hand into `~/.cache/tts-spike/`. None of these is a cyv dependency.
+
+| Component | Used for | License | Status |
+|---|---|---|---|
+| f5-tts-mlx (code) | F5-TTS on Apple MLX (`experiments/f5-say`) | MIT | verify |
+| F5-TTS weights (`lucasnewman/f5-tts-mlx`) | Voice-cloning TTS | HF card says MIT; upstream F5-TTS weights are CC-BY-NC | verify. Treat as non-commercial |
+| vocos-mlx and `lucasnewman/vocos-mel-24khz` | Vocoder for F5 | verify | verify |
+| MLX (`mlx`, `mlx-metal`) | Apple array runtime | MIT | verify |
+| f5-tts (code, Colab notebook) | F5-TTS on PyTorch | MIT | verify |
+| chatterbox-tts (code) | Voice-cloning TTS, Colab and B7 | MIT | verify |
+| Chatterbox weights (`ResembleAI/chatterbox`) | Voice-cloning TTS | MIT per HF card | verify |
+| IndicF5 (`ai4bharat/IndicF5`) | Hindi and Marathi TTS (not tested) | MIT per HF card; trained on research datasets | verify. Gated on Hugging Face |

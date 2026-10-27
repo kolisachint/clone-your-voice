@@ -18,6 +18,7 @@ Handoff for the next session. Short version first.
    clip is calm and explanatory.
 
 Numbers: [docs/benchmarks/B7-clone-tts-m1.md](../docs/benchmarks/B7-clone-tts-m1.md).
+Dos, don'ts and known unknowns: [docs/guides/sounding-like-you.md](../docs/guides/sounding-like-you.md).
 
 ## How to use it now
 
@@ -33,8 +34,8 @@ Every run, exact weights and hashes, and which knob to try next:
 
 | Thing | Where |
 |---|---|
-| This note, B7, `f5say` | branch `agent/mac-spike` (not pushed) |
-| Colab test notebook | branch `tts-clone-test` (pushed; open from GitHub in Colab) |
+| This note, B7, `f5say`, guide | `main` |
+| Colab test notebook | `experiments/tts-clone-test/` on `main` |
 | F5 install, ref clip, test audio | `~/.cache/tts-spike/` (never in git) |
 | Listening files | `~/Downloads/tts-clone-test/` |
 | `f5say` shell function | `~/.config/zsh/.zshrc.local` |

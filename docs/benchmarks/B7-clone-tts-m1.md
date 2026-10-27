@@ -30,9 +30,12 @@ included in this note.
   **Nobody listened to the Chatterbox files** (see Notes and limits).
 
 ## Environment
-Apple M1, 8 GB, macOS 27.2, `cyv --version` 0.0.1, repo commit `5acb5b4`
-(branch `agent/mac-spike`). f5-tts-mlx 0.2.6, mlx 0.32.4. Chatterbox venv:
-Python 3.11.17, PyTorch MPS with `PYTORCH_ENABLE_MPS_FALLBACK=1`.
+Apple M1, 8 GB, macOS 27.2, `cyv --version` 0.0.1, installed cyv at commit
+`69bbf84`. Voice `sachinkoli2` (Applio RVC v2, 40 kHz, 200 epochs).
+F5 venv: Python 3.11.17, f5-tts-mlx 0.2.6, mlx 0.32.4. Chatterbox venv:
+Python 3.11.17, chatterbox-tts 0.1.7, torch 2.6.0, with
+`PYTORCH_ENABLE_MPS_FALLBACK=1`. Exact weight files, revisions and hashes:
+`experiments/f5-say/TUNING.md` section 1.
 Wall-clock timings. The machine was **not idle**: other apps were open and
 the system was swapping (see below).
 
@@ -220,3 +223,5 @@ Not yet added to `docs/licenses.md`.
 - **Before relying on this:** try reference clips in other tones,
   rerun with a quiet machine (nothing else open), and check the F5
   weight license before shipping anything.
+- **Status:** experiment only. Not part of cyv, not in the design. Plain
+  summary for users: `docs/guides/sounding-like-you.md`.

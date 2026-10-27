@@ -74,15 +74,41 @@ def main() -> None:
         clips.setdefault(n, {})[f"{model}_raw"] = f
         conv = work / f"{model}_conv_s{n}.wav"
         print(f"  converting {f.name} ...")
-        run(["cyv", "convert", str(f), "--voice", VOICE, "--preset", "master",
-             "-o", str(conv), "--force"])
+        run(
+            [
+                "cyv",
+                "convert",
+                str(f),
+                "--voice",
+                VOICE,
+                "--preset",
+                "master",
+                "-o",
+                str(conv),
+                "--force",
+            ]
+        )
         clips[n][f"{model}_conv"] = conv
 
     for n in sorted(clips):
         out = work / f"kokoro_say_s{n}.wav"
         print(f"  kokoro baseline s{n} ...")
-        run(["cyv", "say", SENTENCES[n - 1], "--voice", VOICE, "--pitch", str(SAY_PITCH),
-             "--preset", "master", "-o", str(out), "--force"])
+        run(
+            [
+                "cyv",
+                "say",
+                SENTENCES[n - 1],
+                "--voice",
+                VOICE,
+                "--pitch",
+                str(SAY_PITCH),
+                "--preset",
+                "master",
+                "-o",
+                str(out),
+                "--force",
+            ]
+        )
         clips[n]["kokoro_say"] = out
 
     blind = HERE / "blind"
@@ -90,11 +116,11 @@ def main() -> None:
         shutil.rmtree(blind)
     blind.mkdir()
     key = {}
-    rng = random.Random()
+    rng = random.Random()  # noqa: S311 (shuffles a listening test, not security)
     for n in sorted(clips):
         items = list(clips[n].items())
         rng.shuffle(items)
-        for letter, (label, path) in zip("ABCDE", items):
+        for letter, (label, path) in zip("ABCDE", items, strict=False):
             name = f"s{n}_{letter}.wav"
             shutil.copyfile(path, blind / name)
             key[name] = label
