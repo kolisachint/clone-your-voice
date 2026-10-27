@@ -26,6 +26,8 @@ f5say "Text to speak." -o ~/Downloads/out.wav
 ```
 
 Full guide, options and setup: [f5-say/README.md](f5-say/README.md).
+Every run, exact weights and hashes, and which knob to try next:
+[f5-say/TUNING.md](f5-say/TUNING.md).
 
 ## Where things are
 

@@ -9,6 +9,7 @@ found to turn typed English into your voice:
    top, which also adds the cyv watermark.
 
 Results and numbers: [docs/benchmarks/B7-clone-tts-m1.md](../../docs/benchmarks/B7-clone-tts-m1.md).
+Every run, the exact weights, and what to tune next: [TUNING.md](TUNING.md).
 
 ## Quick use
 
@@ -31,6 +32,10 @@ f5say "First line." "Second line." -o ~/Downloads/lines/
 | `--ref` | Which reference clip to copy tone from | `ref_11s` |
 | `--steps` | Quality vs speed. 32 sounded right; 16 is twice as fast but audibly worse | `32` |
 | `--seed` | Change it for a different take of the same line | `42` |
+| `--speed` | Speaking rate vs the reference clip (1.1 = 10% faster) | `1.0` |
+| `--cfg` | How hard to follow the text and voice | `2.0` |
+| `--sway` | Sway sampling coefficient | `-1.0` |
+| `--method` | Solver: `euler`, `midpoint` (2x work), `rk4` (4x work) | `euler` |
 | `--raw` | Skip `cyv convert` (F5 output only) | off |
 | `--force` | Overwrite existing files | off |
 

@@ -48,7 +48,7 @@ def load_ref(name: str):
     return np.asarray(audio), text
 
 
-def synth(model, audio, ref_text: str, line: str, steps: int, seed: int):
+def synth(model, audio, ref_text: str, line: str, opt: argparse.Namespace):
     import mlx.core as mx
     import numpy as np
     from f5_tts_mlx.utils import convert_char_to_pinyin
@@ -60,11 +60,11 @@ def synth(model, audio, ref_text: str, line: str, steps: int, seed: int):
     # F5's own duration predictor cut every clip to ~2.8 s (B7), so estimate
     # the length from the reference's speaking rate instead.
     n = a.shape[0] // HOP
-    dur = n + int(n / len(ref_text.encode()) * len(line.encode()))
+    dur = n + int(n / len(ref_text.encode()) * len(line.encode()) / opt.speed)
     text = convert_char_to_pinyin([ref_text + " " + line])
     wave, _ = model.sample(
-        mx.expand_dims(a, axis=0), text=text, duration=dur, steps=steps,
-        method="euler", cfg_strength=2.0, sway_sampling_coef=-1.0, seed=seed,
+        mx.expand_dims(a, axis=0), text=text, duration=dur, steps=opt.steps,
+        method=opt.method, cfg_strength=opt.cfg, sway_sampling_coef=opt.sway, seed=opt.seed,
     )
     wave = wave[a.shape[0]:]
     mx.eval(wave)
@@ -79,6 +79,11 @@ def main() -> int:
     ap.add_argument("--ref", default="ref_11s", help="reference clip name in ref/ (default ref_11s)")
     ap.add_argument("--steps", type=int, default=32, help="32 sounded right; 16 is 2x faster but worse")
     ap.add_argument("--seed", type=int, default=42, help="change for a different take")
+    ap.add_argument("--speed", type=float, default=1.0, help="speaking rate vs the reference (1.1 = faster)")
+    ap.add_argument("--cfg", type=float, default=2.0, help="how hard to follow text + voice (F5 default 2.0)")
+    ap.add_argument("--sway", type=float, default=-1.0, help="sway sampling coefficient (F5 default -1.0)")
+    ap.add_argument("--method", default="euler", choices=["euler", "midpoint", "rk4"],
+                    help="solver; midpoint is 2x and rk4 4x the work per step")
     ap.add_argument("--raw", action="store_true", help="skip cyv convert (F5 output only)")
     ap.add_argument("--force", action="store_true", help="overwrite existing files")
     a = ap.parse_args()
@@ -107,7 +112,7 @@ def main() -> int:
         for line, target in zip(a.text, targets):
             t0 = time.time()
             print(f"speaking ({a.steps} steps, ~70 s on an M1): {line[:60]}", file=sys.stderr, flush=True)
-            wave = synth(model, audio, ref_text, line, a.steps, a.seed)
+            wave = synth(model, audio, ref_text, line, a)
             raw = target if a.raw else Path(tmp) / "f5.wav"
             sf.write(raw, wave, SR)
             if not a.raw:
