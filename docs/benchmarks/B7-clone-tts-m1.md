@@ -180,6 +180,14 @@ Not yet added to `docs/licenses.md`.
   - 32 steps: "very close to what I wanted".
   - So most of the loss came from cutting steps to save time, not from
     running on the Mac. One sentence, one listener.
+  - Three more English sentences at 32 steps (67, 72 and 78 s for 4.7,
+    5.6 and 6.2 s of audio): "good", but the **tone** is not right.
+- Tone follows the reference clip. F5 has no tone control, and the only
+  clip used here is calm and explanatory, so every line came out that way.
+  Untested fix: record reference clips in the wanted tone.
+- Hindi and Marathi: this F5 model has no Devanagari characters in its
+  vocabulary, so it cannot read them. IndicF5 (AI4Bharat, gated) supports
+  both but was not tested.
 - The Chatterbox Mac files have **not been listened to**. They were only
   checked for length and loudness.
 - Kokoro is a plain TTS voice that is then converted. The F5 and Chatterbox
@@ -207,6 +215,8 @@ Not yet added to `docs/licenses.md`.
 - **Quality vs speed on the Mac:** 32 steps sounds right but takes about
   73 s for a 5.75 s line (RTF about 13). 16 steps halves the time and loses
   audible quality.
-- **Before relying on this:** listen to all three sentences at 32 steps,
+- **Try it:** `experiments/f5-say/` has a one-line wrapper (`f5say`) with
+  these settings, plus setup notes.
+- **Before relying on this:** try reference clips in other tones,
   rerun with a quiet machine (nothing else open), and check the F5
   weight license before shipping anything.
