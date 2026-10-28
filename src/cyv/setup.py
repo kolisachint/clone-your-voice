@@ -20,7 +20,7 @@ from typing import Any
 
 import cyv
 from cyv import ffmpeg, paths
-from cyvd.engine_applio.pin import APPLIO_COMMIT, APPLIO_REPO
+from cyvd.timbre.applio.pin import APPLIO_COMMIT, APPLIO_REPO
 
 PYTHON_VERSION = "3.12"
 

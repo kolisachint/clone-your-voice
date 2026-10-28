@@ -167,7 +167,7 @@ def _voice_dir(tmp_path: Path, **overrides: object) -> Path:
 
 
 def test_engine_rejects_bad_voice_dirs(tmp_path: Path) -> None:
-    from cyvd.engine_applio import ApplioEngine, EngineError
+    from cyvd.timbre.applio import ApplioEngine, EngineError
 
     eng = ApplioEngine(tmp_path, device="cpu")
     assert eng.device == "cpu"
@@ -178,14 +178,14 @@ def test_engine_rejects_bad_voice_dirs(tmp_path: Path) -> None:
 
 
 def test_engine_convert_requires_load(tmp_path: Path) -> None:
-    from cyvd.engine_applio import ApplioEngine, EngineError
+    from cyvd.timbre.applio import ApplioEngine, EngineError
 
     with pytest.raises(EngineError, match="no voice"):
         ApplioEngine(tmp_path, device="cpu").convert(Audio(tone(200, 24000), 24000), 0)
 
 
 def test_engine_reports_missing_applio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from cyvd.engine_applio import ApplioEngine, EngineError
+    from cyvd.timbre.applio import ApplioEngine, EngineError
 
     monkeypatch.setenv("CYV_APPLIO_DIR", str(tmp_path / "none"))
     eng = ApplioEngine(tmp_path, device="cpu")
@@ -194,7 +194,7 @@ def test_engine_reports_missing_applio(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 def test_applio_dir_default_and_override(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    from cyvd.engine_applio.engine import applio_dir
+    from cyvd.timbre.applio.engine import applio_dir
 
     monkeypatch.delenv("CYV_APPLIO_DIR", raising=False)
     monkeypatch.setenv("CYV_HOME", str(tmp_path))
@@ -204,7 +204,7 @@ def test_applio_dir_default_and_override(monkeypatch: pytest.MonkeyPatch, tmp_pa
 
 
 def test_index_cache_reads_and_reconstructs_once(tmp_path: Path) -> None:
-    from cyvd.engine_applio.engine import _IndexCache
+    from cyvd.timbre.applio.engine import _IndexCache
 
     class FakeIndex:
         ntotal = 3
@@ -231,7 +231,7 @@ def test_index_cache_reads_and_reconstructs_once(tmp_path: Path) -> None:
 
 
 def test_kokoro_validates_voice(tmp_path: Path) -> None:
-    from cyvd.tts_kokoro import KokoroTTS, TTSError
+    from cyvd.speech.kokoro import KokoroTTS, TTSError
 
     tts = KokoroTTS(device="cpu", models_dir=tmp_path)
     for bad in ("../x", "af_heart.pt", "AF_HEART", ""):
@@ -281,8 +281,8 @@ def _e2e_paths() -> tuple[Path, Path]:
 def test_e2e_pipeline(tmp_path: Path) -> None:
     models, voice = _e2e_paths()
     sf = pytest.importorskip("soundfile")
-    from cyvd.engine_applio import ApplioEngine
-    from cyvd.tts_kokoro import KokoroTTS
+    from cyvd.speech.kokoro import KokoroTTS
+    from cyvd.timbre.applio import ApplioEngine
 
     guide = KokoroTTS(models_dir=models).synth("This is a short end to end test.", "af_heart", "a")
     assert guide.sample_rate == 24000 and len(guide.samples) > 24000
@@ -421,7 +421,7 @@ def test_pipeline_detect_marks_cyv_message(cyv_home: Path) -> None:
 
 
 def test_relative_paths_resolve_absolute(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    from cyvd.engine_applio.engine import ApplioEngine, applio_dir
+    from cyvd.timbre.applio.engine import ApplioEngine, applio_dir
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("CYV_APPLIO_DIR", "rel/applio")
@@ -433,7 +433,7 @@ def test_relative_paths_resolve_absolute(monkeypatch: pytest.MonkeyPatch, tmp_pa
 
 
 def test_engine_voice_key_covers_index(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from cyvd.engine_applio import ApplioEngine
+    from cyvd.timbre.applio import ApplioEngine
 
     monkeypatch.setenv("CYV_APPLIO_DIR", str(tmp_path))
 

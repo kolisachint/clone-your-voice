@@ -11,7 +11,12 @@ Guidance for AI agents (and humans who like the same rules) working in this repo
 ## Layout
 
 - `src/cyv/`: the thin CLI. It is pure Python and **must not import torch** or other heavy packages. `cyv --help` has to stay instant.
-- `src/cyvd/`: the daemon, which runs in its own venv. It holds the engine (`engine_applio/`), TTS (`tts_kokoro/`), watermark (`watermark/`) and server (`server/`) code.
+- `src/cyvd/`: the daemon, which runs in its own venv. It is a layered voice pipeline:
+  - `speech/` (layer 1): the first pass, text to a guide audio clip. Kokoro lives in `speech/kokoro/`.
+  - `prosody/` (layer 2): delivery, meaning rhythm, intonation and tone. It is a placeholder for now.
+  - `timbre/` (layer 3): makes it sound like you. Applio (RVC) lives in `timbre/applio/`, and its pin is `timbre/applio/pin.py`.
+  - `watermark/` (layer 4): the audio watermark.
+  - `server/`: the socket server.
 - `tests/`: unit tests, pack-import tests, and a CPU smoke test.
 - `notebooks/`: the Colab training notebook and `constraints.txt`.
 - `docs/`: design, ADRs, benchmarks, guides, and `licenses.md`.
@@ -30,7 +35,7 @@ Set up the environment as described in [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Hard rules
 
 - **Never commit weights or voices.** That covers `.pth`, `.index`, `.cyvpack.zip`, `.safetensors`, `.onnx`, and any voice data. Do not work around `.gitignore`.
-- **Pin rule:** the Applio commit in `src/cyvd/engine_applio/pin.py` must match the Applio commit used in `notebooks/train_colab.ipynb`. If you change one, change the other in the same commit, and say so in the PR.
+- **Pin rule:** the Applio commit in `src/cyvd/timbre/applio/pin.py` must match the Applio commit used in `notebooks/train_colab.ipynb`. If you change one, change the other in the same commit, and say so in the PR.
 - **Dependencies:** a new dependency needs its license recorded in `docs/licenses.md`. Mark anything you have not verified as "verify".
 - **Engine or TTS changes** need a benchmark entry in `docs/benchmarks/`.
 - **Do not commit or push** unless the maintainer asks you to.

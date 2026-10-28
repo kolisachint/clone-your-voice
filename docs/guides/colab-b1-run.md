@@ -60,7 +60,7 @@ Never mix phases in one dataset: one pack, one session's recordings.
 
 - [ ] The notebook installs Applio at one exact commit
   (`APPLIO_COMMIT` in the install cell). Confirm it still equals
-  `src/cyvd/engine_applio/pin.py`:
+  `src/cyvd/timbre/applio/pin.py`:
   both should read `c817f1f83f689ef72e0dfeb1c17ae990b9248506`.
   If they differ, stop — the pin must match
   (`CLAUDE.md` pin rule; `tests/test_notebook.py` checks this too).
@@ -149,5 +149,5 @@ self-test PASS/FAIL, your listening rank, and the `.cyvpack.zip` size.
 | **Checkpoint sample-rate clash** | You resumed with a different `SAMPLE_RATE` than the Drive checkpoints. Use the same value, or delete that voice's `checkpoints/` folder to start over. |
 
 Paths cited: notebook and helpers in [`../../notebooks/`](../../notebooks/),
-pin in `src/cyvd/engine_applio/pin.py`, checks in `tests/test_notebook.py`,
+pin in `src/cyvd/timbre/applio/pin.py`, checks in `tests/test_notebook.py`,
 policy in [USAGE_POLICY.md](../../USAGE_POLICY.md).

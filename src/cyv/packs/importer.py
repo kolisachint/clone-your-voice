@@ -36,13 +36,13 @@ _PIN_RE = re.compile(r"^APPLIO_COMMIT\s*=\s*[\"']([0-9a-f]{7,40})[\"']", re.M)
 
 
 def _pinned_commit() -> str | None:
-    """Read APPLIO_COMMIT from cyvd's pin.py as text (importing cyvd.engine_applio pulls in the
+    """Read APPLIO_COMMIT from cyvd's pin.py as text (importing cyvd.timbre.applio pulls in the
     engine). Returns None if cyvd is not installed next to cyv."""
     try:
         spec = importlib.util.find_spec("cyvd")  # runs only cyvd/__init__.py
         roots = list(spec.submodule_search_locations or []) if spec else []
         for root in roots:
-            pin = Path(root) / "engine_applio" / "pin.py"
+            pin = Path(root) / "timbre" / "applio" / "pin.py"
             if pin.is_file():
                 m = _PIN_RE.search(pin.read_text(encoding="utf-8"))
                 return m.group(1) if m else None
