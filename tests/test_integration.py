@@ -16,7 +16,7 @@ from tests.test_dataset import attest, make_dir
 
 from cyv import packs
 from cyv.dataset import prepare_dataset
-from cyvd.engine_applio.pin import APPLIO_COMMIT
+from cyvd.timbre.applio.pin import APPLIO_COMMIT
 
 torch = pytest.importorskip("torch")
 

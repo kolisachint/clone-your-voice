@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 NB_DIR = ROOT / "notebooks"
 NOTEBOOK = NB_DIR / "train_colab.ipynb"
 SCHEMA = ROOT / "src" / "cyv" / "packs" / "voice_schema.json"
-PIN = ROOT / "src" / "cyvd" / "engine_applio" / "pin.py"
+PIN = ROOT / "src" / "cyvd" / "timbre" / "applio" / "pin.py"
 
 
 def _load_helper():

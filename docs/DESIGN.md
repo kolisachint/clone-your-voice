@@ -225,7 +225,7 @@ clone-your-voice/
 ├── docs/  DESIGN.md  adr/  benchmarks/  guides/ (recording, colab, troubleshooting-mac)
 ├── notebooks/  train_colab.ipynb  constraints.txt
 ├── src/cyv/        cli/  client/  packs/  dataset/  presets.toml        (thin, no torch)
-├── src/cyvd/       server/  engine_applio/  tts_kokoro/  watermark/     (daemon venv)
+├── src/cyvd/       speech/kokoro/ (L1)  prosody/ (L2)  timbre/applio/ (L3)  watermark/ (L4)  server/   (daemon venv)
 ├── tests/          unit, pack-import fuzz (zip-slip, bad pickles), CPU smoke test
 ├── uv.lock
 └── .github/        workflows/ (ruff, pytest macos-14, notebook checks in tests/test_notebook.py)  ISSUE_TEMPLATE/  PULL_REQUEST_TEMPLATE.md
@@ -302,6 +302,8 @@ Findings that refine the design:
 - **CI** is active at `.github/workflows/ci.yml`: ruff, pytest on macos-14, and notebook pin checks.
 - **Quality gap is at inference, not training (Oct 2026, first real pack `sachinkoli2`):** `cyv convert` on the user's own recording sounds as good as the Colab self-test, so export, import and sanitize lose nothing. `cyv say` sounds worse because Kokoro sets the delivery and RVC keeps it; the best `--pitch` (-6) still was not "me". Summary for users: `docs/guides/sounding-like-you.md`.
 - **B7 (voice-cloning TTS, experiment, outside this design):** F5-TTS followed by `cyv convert` beat Kokoro `say` blind on all 3 sentences. On an 8 GB M1, F5 (MLX) fits (~3.3 GB) but takes ~70 s per sentence at the 32 steps that sound right; Chatterbox needs 8.4 GB of GPU memory and is ruled out. Tone follows the reference clip. Not adopted: it would need ADRs (second TTS, reference clip in the pack) and an F5 weights license check (`docs/benchmarks/B7-clone-tts-m1.md`, `experiments/f5-say/`).
+
+**Proposed (Oct 2026, not yet accepted):** ADR-005 layered pipeline (speech → prosody → timbre → watermark, with an everyday fast tier and a quality tier; the `src/cyvd/` move to `speech/`, `prosody/`, `timbre/` is done), ADR-006 reference clips in the voice pack, ADR-007 F5-TTS as an opt-in quality-tier TTS (weights are CC-BY-NC-4.0, so never in the default install; `docs/licenses.md`). A Colab path for the quality tier is in `experiments/quality-voice-colab/`.
 
 **Next:** decide on B7 (tone test with new reference clips, then an ADR or not), B1 on a real Colab T4 (checklist: `docs/guides/colab-b1-run.md`), the with-voice B2/B3 re-run once a Colab-trained pack exists, `cyv doctor` on a real `~/.cyv`, and the daemon serve path (`serve`/`say` through the socket).
 

@@ -167,8 +167,8 @@ def build_pipeline(fake: bool) -> Pipeline:
 
         return Pipeline(FakeTTS(), FakeEngine(), FakeWatermarker(), 0, lenient_voices=True)
 
-    from cyvd.engine_applio import ApplioEngine
-    from cyvd.tts_kokoro import KokoroTTS
+    from cyvd.speech.kokoro import KokoroTTS
+    from cyvd.timbre.applio import ApplioEngine
     from cyvd.watermark import CYV_MESSAGE, get_watermarker
 
     return Pipeline(

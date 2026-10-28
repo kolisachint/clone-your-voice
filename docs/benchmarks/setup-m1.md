@@ -57,7 +57,7 @@ Kokoro 327 MB, AudioSeal ~93 MB, 54 voices), every file passing its
   1. **Applio itself** — git-cloned at `APPLIO_COMMIT`, and it has no
      `pyproject.toml`/`setup.py`, so it cannot become a
      `git+https://…@sha` PEP 508 dependency without restructuring how
-     Applio ships. The pin (`src/cyvd/engine_applio/pin.py`) is the lock.
+     Applio ships. The pin (`src/cyvd/timbre/applio/pin.py`) is the lock.
   2. **`requirements-engine.txt`** — Applio-upstream exact pins
      (`torch==2.11.0`, `transformers==5.13.1`, …) installed as a second
      `-r` step. Representing these in `pyproject` would fork from upstream
