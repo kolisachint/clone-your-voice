@@ -35,7 +35,7 @@ Every run, exact weights and hashes, and which knob to try next:
 | Thing | Where |
 |---|---|
 | This note, B7, `f5say`, guide | `main` |
-| Colab test notebook | `experiments/tts-clone-test/` on `main` |
+| Colab test notebook | `experiments/tts-clone-test/`, removed by ADR-008 (see git history) |
 | F5 install, ref clip, test audio | `~/.cache/tts-spike/` (never in git) |
 | Listening files | `~/Downloads/tts-clone-test/` |
 | `f5say` shell function | `~/.config/zsh/.zshrc.local` |

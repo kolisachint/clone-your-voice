@@ -230,17 +230,6 @@ def test_index_cache_reads_and_reconstructs_once(tmp_path: Path) -> None:
     assert (FakeFaiss.reads, FakeIndex.calls) == (1, 1)
 
 
-def test_kokoro_validates_voice(tmp_path: Path) -> None:
-    from cyvd.speech.kokoro import KokoroTTS, TTSError
-
-    tts = KokoroTTS(device="cpu", models_dir=tmp_path)
-    for bad in ("../x", "af_heart.pt", "AF_HEART", ""):
-        with pytest.raises(TTSError, match="invalid voice"):
-            tts.synth("hi", bad, "a")
-    with pytest.raises(TTSError, match="cyv setup"):
-        tts.synth("hi", "af_heart", "a")
-
-
 # -- models.toml -------------------------------------------------------------------
 
 
@@ -257,8 +246,8 @@ def test_models_toml_is_well_formed() -> None:
         p = Path(e["dest"])
         assert not p.is_absolute() and ".." not in p.parts
     used = {e["used_by"] for e in entries}
-    assert used == {"applio-rvc", "kokoro", "audioseal"}
-    assert "applio/predictors/rmvpe.pt" in dests and "kokoro/kokoro-v1_0.pth" in dests
+    assert used == {"applio-rvc", "audioseal"}
+    assert "applio/predictors/rmvpe.pt" in dests
 
 
 # -- slow end-to-end ---------------------------------------------------------------
@@ -271,7 +260,7 @@ def _e2e_paths() -> tuple[Path, Path]:
     voice = os.environ.get("CYV_E2E_VOICE")
     if not voice:
         pytest.skip("CYV_E2E_VOICE not set")
-    for dep in ("torch", "kokoro", "audioseal", "soxr", "faiss"):
+    for dep in ("torch", "audioseal", "soxr", "faiss"):
         pytest.importorskip(dep)
     return models, Path(voice)
 
@@ -281,11 +270,12 @@ def _e2e_paths() -> tuple[Path, Path]:
 def test_e2e_pipeline(tmp_path: Path) -> None:
     models, voice = _e2e_paths()
     sf = pytest.importorskip("soundfile")
-    from cyvd.speech.kokoro import KokoroTTS
     from cyvd.timbre.applio import ApplioEngine
 
-    guide = KokoroTTS(models_dir=models).synth("This is a short end to end test.", "af_heart", "a")
-    assert guide.sample_rate == 24000 and len(guide.samples) > 24000
+    # A voiced, speech-shaped guide; the speech layer has no model until ADR-008 lands.
+    t = np.arange(3 * 24000) / 24000
+    env = 0.6 + 0.4 * np.sin(2 * np.pi * 4 * t)
+    guide = Audio((0.3 * env * np.sin(2 * np.pi * 160 * t)).astype(np.float32), 24000)
 
     engine = ApplioEngine(models)
     engine.load(voice)
@@ -352,6 +342,19 @@ def test_pipeline_reloads_when_model_or_index_changes(cyv_home: Path) -> None:
     (d / "model.pth").write_bytes(b"model-two!")
     p.say("hi", "bob", 0, False)
     assert len(eng.loads) == 3
+
+
+def test_pipeline_without_tts_refuses_say_but_converts(cyv_home: Path) -> None:
+    from cyvd.server.fakes import FakeWatermarker
+    from cyvd.server.pipeline import Pipeline, RequestError
+    from cyvd.server.wavio import encode_wav
+
+    _installed_voice(cyv_home)
+    p = Pipeline(None, _RecEngine(), FakeWatermarker(), 0)
+    with pytest.raises(RequestError) as ei:
+        p.say("hi", "bob", 0, False)
+    assert ei.value.code == "tts_unavailable" and "cyv convert" in str(ei.value)
+    assert p.convert(encode_wav(Audio(tone(200, 24000), 24000)), "bob", 0, False)
 
 
 def test_pipeline_removed_voice_is_not_found_and_reload_is_safe(cyv_home: Path) -> None:

@@ -193,15 +193,3 @@ def test_download_network_errors_are_setup_errors(monkeypatch):
 def test_load_models_reads_size_bytes():
     sizes = [m.size_bytes for m in setup.load_models()]
     assert sizes and all(isinstance(x, int) and x > 0 for x in sizes)
-
-
-def test_spacy_requirements_are_hash_pinned():
-    lines = [
-        ln
-        for ln in setup.SPACY_REQUIREMENTS.read_text().splitlines()
-        if ln.strip() and not ln.startswith("#")
-    ]
-    assert len(lines) == 1
-    assert lines[0].startswith("en_core_web_sm @ https://") and "--hash=sha256:" in lines[0]
-    step = next(s for s in setup.plan(force=True) if "spaCy" in s.title)
-    assert "--require-hashes" in step.detail and "daemon-spacy.txt" in step.detail

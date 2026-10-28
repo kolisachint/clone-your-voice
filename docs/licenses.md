@@ -9,14 +9,7 @@ Every new dependency needs a row here in the same pull request.
 | Component | Used for | License | Status |
 |---|---|---|---|
 | Applio (RVC voice conversion) | Voice conversion, training code | MIT | Stated in DESIGN.md |
-| Kokoro (code and weights) | Default text-to-speech | Apache-2.0 | Stated in DESIGN.md |
-| misaki (`misaki[en]`) | English text front end for Kokoro | Apache-2.0 | verify |
-| espeak-ng | Pronunciation of out-of-dictionary words | GPL-3.0 | Stated in DESIGN.md. Runtime dependency only (see below) |
-| espeakng-loader | Loads espeak-ng for misaki | verify | Not stated in DESIGN.md |
 | soxr | Audio resampling | verify | Daemon dependency (`soxr>=0.5` in pyproject), not stated in DESIGN.md |
-| spaCy | English text pipeline used by the Kokoro/misaki front end | verify | Installed by `cyv setup` via `misaki[en]`, not stated in DESIGN.md |
-| preshed | Hash tables backing spaCy | verify | Transitive dependency via misaki → spaCy (pinned in `src/cyv/daemon-constraints.txt`), not stated in DESIGN.md |
-| en_core_web_sm | English model for the spaCy pipeline | verify | Fetched at setup (see DESIGN.md §11), not stated in DESIGN.md |
 | AudioSeal (Meta) | Default watermark | MIT | Stated in DESIGN.md (ADR-004) |
 | Resemble Perth | Fallback watermark | MIT | Stated in DESIGN.md (§6.3) |
 | PyTorch (`torch`) | Model runtime | BSD-3-Clause | verify |
@@ -25,17 +18,27 @@ Every new dependency needs a row here in the same pull request.
 | ffmpeg | Output presets (Opus, MP3, WAV) | LGPL or GPL, depends on build | verify. Installed by the user with Homebrew, not bundled |
 | HuBERT / ContentVec weights | Speaker embedding | verify | Not stated in DESIGN.md. Downloaded at setup |
 | RMVPE weights | Pitch estimation | verify | Not stated in DESIGN.md. Downloaded at setup |
-| Kokoro voice and model files | Default TTS model | Apache-2.0 | Stated in DESIGN.md, downloaded at setup |
 
 Dev tools (`pytest`, `ruff`) and build tools (`hatchling`) are not shipped to users. Their licenses have not been recorded yet. **verify**
 
-## Why espeak-ng is a runtime dependency only
+## Removed components
 
-espeak-ng is licensed under GPL-3.0. Kokoro depends on it through `misaki[en]` and `espeakng-loader`, for words that are not in the dictionary.
+Kokoro was removed by ADR-008. Its front end came with it: misaki, espeak-ng (GPL-3.0), espeakng-loader, spaCy, preshed and en_core_web_sm. `cyv setup` no longer installs any of them, so the install no longer pulls in a GPL component.
 
-We do **not** bundle a prebuilt wheelhouse (a folder of ready-made packages). A bundle would redistribute espeak-ng, and that would change our obligations under the GPL. Instead, `cyv setup` installs the dependencies from PyPI on the user's Mac, the same way they would install them by hand.
+## Speech models (ADR-008)
 
-This project's own code is MIT. The GPL component is not copied into this repository.
+These run only in the training notebook on a cloud GPU. They are not dependencies of `cyv` or `cyvd`, and `cyv setup` does not install them. This project is for personal use. Check both again before any commercial use.
+
+| Component | Used for | License | Status |
+|---|---|---|---|
+| F5-TTS weights (`SWivid/F5-TTS`) | English speech model | CC-BY-NC-4.0 | Verified (see the experiments table below). Non-commercial |
+| IndicF5 weights (`ai4bharat/IndicF5`) | Hindi and Marathi speech model | MIT per the model card. Gated on Hugging Face (you accept terms to download) | verify. It is fine-tuned from F5-TTS, whose weights are non-commercial |
+| IndicF5 package (`github.com/ai4bharat/IndicF5`) | Runs IndicF5 in the voice lab notebook. Installed unpinned from GitHub, as in AI4Bharat's demo Space | verify | verify. Pin it to a commit once it can be looked up |
+| faster-whisper | Cutting and checking clips in the voice lab notebook | MIT | PyPI metadata (1.2.1). verify |
+| Whisper large-v3 weights (`Systran/faster-whisper-large-v3`) | Speech recognition in the voice lab | MIT | Hugging Face card. verify |
+| WavLM speaker verification (`microsoft/wavlm-base-plus-sv`) | Speaker similarity scores in the voice lab | Card points to the UniSpeech repository license | verify |
+| espeak-ng | Local test of the clip cutter only (B8 notes). Not installed by cyv | GPL-3.0 | Test tool only, never shipped |
+| Google FLEURS | Test reference voices in benchmark B8 only. Not stored in the repository | CC-BY-4.0 | verify |
 
 ## Installed by the user
 

@@ -47,8 +47,6 @@ class Model:
 
 
 CONSTRAINTS = Path(__file__).with_name("daemon-constraints.txt")
-# URL + sha256 of the spaCy English wheel; `uv pip install --require-hashes` needs a file.
-SPACY_REQUIREMENTS = Path(__file__).with_name("daemon-spacy.txt")
 
 
 def is_mac_arm64() -> bool:
@@ -320,24 +318,6 @@ def plan(*, force: bool = False) -> list[Step]:
                     str(applio_dir() / "requirements-engine.txt"),
                 ]
             ),  # fmt: skip
-        ),
-        # Kokoro's G2P would otherwise pip-install this from GitHub at first use, inside the daemon.
-        Step(
-            "Install spaCy English model",
-            f"{uv} pip install --python {vpy} --require-hashes --no-deps -r {SPACY_REQUIREMENTS}",
-            lambda: _run(
-                [
-                    uv,
-                    "pip",
-                    "install",
-                    "--python",
-                    str(vpy),
-                    "--require-hashes",
-                    "--no-deps",  # spaCy itself is already installed (via misaki)
-                    "-r",
-                    str(SPACY_REQUIREMENTS),
-                ]
-            ),
         ),
     ]
     for m in load_models():

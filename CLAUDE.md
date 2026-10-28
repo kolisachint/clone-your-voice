@@ -12,13 +12,13 @@ Guidance for AI agents (and humans who like the same rules) working in this repo
 
 - `src/cyv/`: the thin CLI. It is pure Python and **must not import torch** or other heavy packages. `cyv --help` has to stay instant.
 - `src/cyvd/`: the daemon, which runs in its own venv. It is a layered voice pipeline:
-  - `speech/` (layer 1): the first pass, text to a guide audio clip. Kokoro lives in `speech/kokoro/`.
+  - `speech/` (layer 1): the first pass, text to a guide audio clip. F5-TTS (English) and IndicF5 (Hindi, Marathi) go here, routed by `src/cyv/languages.py` (ADR-008). It is empty for now.
   - `prosody/` (layer 2): delivery, meaning rhythm, intonation and tone. It is a placeholder for now.
   - `timbre/` (layer 3): makes it sound like you. Applio (RVC) lives in `timbre/applio/`, and its pin is `timbre/applio/pin.py`.
   - `watermark/` (layer 4): the audio watermark.
   - `server/`: the socket server.
 - `tests/`: unit tests, pack-import tests, and a CPU smoke test.
-- `notebooks/`: the Colab training notebook and `constraints.txt`.
+- `notebooks/`: the Colab training notebook, the voice lab notebook (`voice_lab_colab.ipynb` with its helper `cyv_lab.py`, ADR-008), and `constraints.txt`.
 - `docs/`: design, ADRs, benchmarks, guides, and `licenses.md`.
 
 ## Commands

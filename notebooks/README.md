@@ -4,6 +4,8 @@
 |---|---|
 | `train_colab.ipynb` | The Colab training notebook. Run top to bottom on a free T4 GPU. Uses Applio's command-line path only (no web UI, no tunnels). |
 | `cyv_colab.py` | Helper functions the notebook imports (dataset validation, `voice.json`, pack writing, Drive resume). Standard library only, so they are unit-tested in `tests/test_notebook.py`. |
+| `voice_lab_colab.ipynb` | The voice lab (ADR-008). Reads one recording batch from Drive, cuts it into clips, checks them, clones each line with F5-TTS (English) or IndicF5 (Hindi, Marathi), runs your voice model over it, and writes scores and a blind listening set back to Drive. |
+| `cyv_lab.py` | Helpers for the voice lab: cutting long recordings by their spoken line numbers, the clip check, picking a clip to clone from, the report. numpy only, unit-tested in `tests/test_lab.py`. The notebook loads it from `MyDrive/clone-your-voice/code/`. |
 | `constraints.txt` | Version pins for the packages most likely to break when Applio's requirements are installed. |
 
 ## Using it
@@ -14,6 +16,12 @@
 4. Delete the dataset from Drive and **empty the Drive Trash** (step 9 of the notebook explains why).
 
 If Colab disconnects during training, reconnect and run all cells again with the same voice name; it resumes from the checkpoints on your Drive.
+
+## Voice lab
+
+1. Upload a recorded batch to `MyDrive/clone-your-voice/batches/<NNN>/`, next to its `batch-<NNN>.tsv`.
+2. Copy `cyv_lab.py` to `MyDrive/clone-your-voice/code/`. The notebook loads it from there for now and prints its sha256. Once this is on `main`, it can fetch the helper from GitHub with a pinned sha256, like `train_colab.ipynb`.
+3. Open `voice_lab_colab.ipynb` in Colab, add the `HF_TOKEN` secret, pick a T4 GPU, and run all.
 
 ## Notes for maintainers
 

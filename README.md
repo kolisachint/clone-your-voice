@@ -12,7 +12,7 @@ on an Apple Silicon Mac from the terminal.
 2. `cyv dataset prepare ./my-clips --name me` → `dataset.zip`, with a consent attestation.
 3. Train on Colab with [`notebooks/train_colab.ipynb`](notebooks/train_colab.ipynb) → `me.cyvpack.zip`.
 4. `cyv setup` (one time), then `cyv voices import me.cyvpack.zip`.
-5. `cyv say "Hello there" --preset telegram` or `cyv convert take.wav`.
+5. `cyv convert take.wav --preset telegram`. `cyv say` is paused while its speech models change: F5-TTS for English, IndicF5 for Hindi and Marathi ([ADR-008](docs/adr/0008-shortlist-f5-indicf5-rvc.md)).
 
 Every output carries an inaudible AudioSeal watermark by default (`--no-watermark` turns it off).
 Read the [usage policy](USAGE_POLICY.md): clone only voices you own or have explicit permission to use.

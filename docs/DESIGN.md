@@ -7,7 +7,7 @@ Status: **design accepted. The Linux-testable scaffold is implemented (§11). B4
 | # | Decision |
 |---|---|
 | D1 | License: **MIT** (matches Applio) |
-| D2 | Default text-to-speech: **offline Kokoro**. Edge-TTS comes later as an opt-in. |
+| D2 | ~~Default text-to-speech: offline Kokoro.~~ **Superseded by ADR-008:** F5-TTS for English, IndicF5 for Hindi and Marathi. Kokoro is removed. |
 | D3 | Watermark: **on by default, user can turn it off**. SynthID-style invisible neural audio watermark (ADR-004). |
 | D4 | Interface: **CLI only**. The daemon is internal and has no network port. |
 | D5 | v1 platform: **macOS on Apple Silicon only**. Training is in the cloud. |
@@ -15,6 +15,7 @@ Status: **design accepted. The Linux-testable scaffold is implemented (§11). B4
 | ADR-001 | Python, no Rust: the bottleneck is GPU math and cold start, not CPU |
 | ADR-002 | Voice pack v1 format (§4.2) |
 | ADR-003 | The daemon speaks length-prefixed JSON over a unix socket using plain `asyncio`, **not FastAPI/HTTP** (one local client; faster import, less surface) |
+| ADR-008 | **Shortlist:** F5-TTS (English) and IndicF5 (Hindi, Marathi) learn from clips by language. Applio RVC learns from every clip. Kokoro and Chatterbox are dropped. Work happens in recording batches (`docs/guides/batches/`). |
 | ADR-004 | Watermarking sits behind a `Watermarker` interface. **Default backend: Meta AudioSeal (MIT)**, the open, offline equivalent of SynthID audio. **SynthID** becomes a backend if Google ever releases an embedding SDK. Perth is the fallback (§6.3). |
 
 ## 1. Goal and scope
@@ -25,7 +26,7 @@ Let anyone clone **their own** voice cheaply: train once on Colab, then run `cyv
 
 **Not in v1:** live mic, Windows/Linux, an HTTP API, cloning third-party voices, a GUI, a plug-in registry, multiple warm voices, launchd integration, a voice-tuning UI, and watermark detection (that moves to M3).
 
-**Expectation to state in the README:** `say` = Kokoro's delivery with your timbre. Your *timbre*, not your natural rhythm or intonation. For the most "you" result, use `convert` on a recording of yourself performing the line.
+**Since ADR-008, `say` returns `tts_unavailable`** until F5-TTS and IndicF5 are wired into the daemon. Before that, the expectation was: `say` = Kokoro's delivery with your timbre. Your *timbre*, not your natural rhythm or intonation. For the most "you" result, use `convert` on a recording of yourself performing the line.
 
 ## 2. End-to-end user journey
 
@@ -98,7 +99,7 @@ Performance targets (warm ≤1.5 s, ≤2.5 GB) are **provisional** and stay out 
 ```
 ┌──────── CLOUD ────────┐           ┌────────────────────────── MAC ───────────────────────────────┐
 │ train_colab.ipynb     │ .cyvpack  │ cyv  (thin CLI, no torch) ──unix socket──► cyvd (daemon venv) │
-│ Applio @ pin X        │ ────────► │   writes output files              ├─ kokoro  (text → guide)  │
+│ Applio @ pin X        │ ────────► │   writes output files              ├─ speech  (text → guide)  │
 │ + constraints.txt     │  (manual) │   runs ffmpeg presets              ├─ applio-rvc @ pin X      │
 └───────────────────────┘           │                                    └─ watermark               │
                                     └──────────────────────────────────────────────────────────────┘
@@ -225,7 +226,7 @@ clone-your-voice/
 ├── docs/  DESIGN.md  adr/  benchmarks/  guides/ (recording, colab, troubleshooting-mac)
 ├── notebooks/  train_colab.ipynb  constraints.txt
 ├── src/cyv/        cli/  client/  packs/  dataset/  presets.toml        (thin, no torch)
-├── src/cyvd/       speech/kokoro/ (L1)  prosody/ (L2)  timbre/applio/ (L3)  watermark/ (L4)  server/   (daemon venv)
+├── src/cyvd/       speech/ (L1, ADR-008)  prosody/ (L2)  timbre/applio/ (L3)  watermark/ (L4)  server/   (daemon venv)
 ├── tests/          unit, pack-import fuzz (zip-slip, bad pickles), CPU smoke test
 ├── uv.lock
 └── .github/        workflows/ (ruff, pytest macos-14, notebook checks in tests/test_notebook.py)  ISSUE_TEMPLATE/  PULL_REQUEST_TEMPLATE.md
@@ -303,7 +304,11 @@ Findings that refine the design:
 - **Quality gap is at inference, not training (Oct 2026, first real pack `sachinkoli2`):** `cyv convert` on the user's own recording sounds as good as the Colab self-test, so export, import and sanitize lose nothing. `cyv say` sounds worse because Kokoro sets the delivery and RVC keeps it; the best `--pitch` (-6) still was not "me". Summary for users: `docs/guides/sounding-like-you.md`.
 - **B7 (voice-cloning TTS, experiment, outside this design):** F5-TTS followed by `cyv convert` beat Kokoro `say` blind on all 3 sentences. On an 8 GB M1, F5 (MLX) fits (~3.3 GB) but takes ~70 s per sentence at the 32 steps that sound right; Chatterbox needs 8.4 GB of GPU memory and is ruled out. Tone follows the reference clip. Not adopted: it would need ADRs (second TTS, reference clip in the pack) and an F5 weights license check (`docs/benchmarks/B7-clone-tts-m1.md`, `experiments/f5-say/`).
 
-**Proposed (Oct 2026, not yet accepted):** ADR-005 layered pipeline (speech → prosody → timbre → watermark, with an everyday fast tier and a quality tier; the `src/cyvd/` move to `speech/`, `prosody/`, `timbre/` is done), ADR-006 reference clips in the voice pack, ADR-007 F5-TTS as an opt-in quality-tier TTS (weights are CC-BY-NC-4.0, so never in the default install; `docs/licenses.md`). A Colab path for the quality tier is in `experiments/quality-voice-colab/`.
+**Accepted (28 Oct 2026): ADR-008.** The speech layer is F5-TTS (English) and IndicF5 (Hindi, Marathi), and the voice model is Applio RVC. Kokoro is removed from the daemon, `cyv setup` and the dependencies, so `cyv say` answers `tts_unavailable` until the speech layer is wired in. Chatterbox is removed from the experiments. Kokoro and espeak-ng notes above are kept as history. B8 is the first IndicF5 listen: Marathi good, English bad, Hindi not heard yet (`docs/benchmarks/B8-indicf5-samples.md`).
 
-**Next:** decide on B7 (tone test with new reference clips, then an ADR or not), B1 on a real Colab T4 (checklist: `docs/guides/colab-b1-run.md`), the with-voice B2/B3 re-run once a Colab-trained pack exists, `cyv doctor` on a real `~/.cyv`, and the daemon serve path (`serve`/`say` through the socket).
+**Proposed (Oct 2026, not yet accepted):** ADR-005 layered pipeline (speech → prosody → timbre → watermark, with an everyday fast tier and a quality tier; the `src/cyvd/` move to `speech/`, `prosody/`, `timbre/` is done), ADR-006 reference clips in the voice pack, ADR-007 F5-TTS as an opt-in quality-tier TTS (now superseded by ADR-008). A Colab path for the quality tier is in `experiments/quality-voice-colab/`.
+
+**Voice lab (ADR-008, Oct 2026):** `notebooks/voice_lab_colab.ipynb` runs one recording batch end to end on Colab: cut by spoken line numbers, check with speech recognition, clone each line with F5-TTS or IndicF5 from another of the user's clips, convert with the RVC voice, score against the real recording. The cutter passed 9 of 9 lines on a synthetic test (B8). The GPU steps have not run yet. Batch 001 (27 lines) is ready to record.
+
+**Next (ADR-008):** record batch 001 and run the voice lab on it; fix what the first GPU run finds; write the batch 001 results as a benchmark; retrain the RVC voice on the new clips; fine-tune F5-TTS and IndicF5 once a language has about 30 minutes; wire them into the daemon so `cyv say` works again. Older items: decide on B7 (tone test with new reference clips, then an ADR or not), B1 on a real Colab T4 (checklist: `docs/guides/colab-b1-run.md`), the with-voice B2/B3 re-run once a Colab-trained pack exists, `cyv doctor` on a real `~/.cyv`, and the daemon serve path (`serve`/`say` through the socket).
 

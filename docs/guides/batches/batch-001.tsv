@@ -1,0 +1,28 @@
+file	lang	style	text
+en_read_001	en	read	The old library at the end of our street opened in nineteen fifty two, and on rainy afternoons it still smells of paper, dust and warm tea.
+en_read_002	en	read	To make a good cup of masala chai, boil the water with ginger and cardamom first, then add the tea leaves, the milk, and a little sugar.
+en_conv_001	en	conv	Hey, are you free this evening? I was thinking we could grab dinner somewhere close, nothing fancy, just good food and a long chat.
+en_conv_002	en	conv	Wait, you actually finished the whole thing in one night? Okay, tell me everything, I want to hear how you pulled that off.
+en_conv_003	en	conv	Honestly, I'm not sure that's a good idea. Let's sleep on it and talk again tomorrow morning, when we both have a clear head.
+en_happy_001	en	happy	We did it! The results just came in and every single test passed. I can't believe it, this is the best news all week!
+en_sad_001	en	sad	I walked past our old school today. The gate was locked, the playground was empty, and for a moment I really missed those days.
+en_angry_001	en	angry	No, I have said this three times already. The deadline was Friday, not Monday, and now the whole team has to stay late because of it.
+hi_read_001	hi	read	हमारे गाँव के पास एक पुराना बरगद का पेड़ है, जिसकी छाँव में बच्चे दोपहर भर खेलते हैं और बड़े लोग बातें करते हैं।
+hi_read_002	hi	read	अच्छी नींद के लिए रोज़ एक ही समय पर सोना और सोने से पहले फ़ोन को दूर रखना बहुत ज़रूरी है।
+hi_conv_001	hi	conv	अरे, आप इतने दिन कहाँ थे? फ़ोन भी नहीं उठा रहे थे, सब ठीक तो है ना?
+hi_conv_002	hi	conv	चलो, आज शाम को बाहर चाय पीने चलते हैं। बारिश का मौसम है, गरम पकौड़े भी खाएँगे।
+hi_conv_003	hi	conv	यार, आज ऑफिस की मीटिंग बहुत लंबी चली, लेकिन फाइनली प्रोजेक्ट अप्रूव हो गया!
+hi_conv_004	hi	conv	कल का प्लान कैंसल मत करना, टिकट्स बुक हो चुके हैं और सबको सुबह सात बजे स्टेशन पहुँचना है।
+hi_happy_001	hi	happy	वाह! क्या बात है! रिज़ल्ट आ गया और हम सब पास हो गए, आज तो पार्टी बनती है!
+hi_sad_001	hi	sad	आज पुराने घर के सामने से गुज़रना हुआ। खिड़कियाँ बंद थीं, आँगन सूना था, और दिल अचानक भारी हो गया।
+hi_angry_001	hi	angry	बस, बहुत हो गया! तीन बार समझाया जा चुका है, फिर भी वही गलती बार-बार क्यों हो रही है?
+hi_sing_001	hi	sing	सा रे ग म प ध नि सां, सां नि ध प म ग रे सा
+hi_sing_002	hi	sing	सा रे ग म प ध नि सां, सां नि ध प म ग रे सा
+mr_read_001	mr	read	आमच्या गावाजवळ एक जुनी विहीर आहे, आणि उन्हाळ्यात सगळे लोक तिथे पाणी भरायला जमतात.
+mr_read_002	mr	read	रोज सकाळी थोडा वेळ चालणं, भरपूर पाणी पिणं आणि वेळेवर जेवणं, या छोट्या सवयींनी आरोग्य चांगलं राहतं.
+mr_conv_001	mr	conv	तुम्ही इतके दिवस कुठे होता? फोनसुद्धा उचलत नव्हता, सगळं ठीक आहे ना?
+mr_conv_002	mr	conv	चला, आज संध्याकाळी बाहेर चहा प्यायला जाऊया. पाऊस पडतोय, गरम भजीसुद्धा खाऊया.
+mr_conv_003	mr	conv	उद्याचा प्लॅन रद्द करू नका, तिकिटं काढली आहेत आणि सगळ्यांनी सकाळी सात वाजता स्टेशनवर यायचं आहे.
+mr_happy_001	mr	happy	अरे वा! निकाल लागला आणि सगळे पास झाले, आज तर पार्टी झालीच पाहिजे!
+mr_sad_001	mr	sad	आज जुन्या शाळेसमोरून जाणं झालं. मैदान रिकामं होतं, वर्ग बंद होते, आणि मन एकदम भरून आलं.
+mr_angry_001	mr	angry	पुरे झालं आता! तीनदा सांगून झालं, तरी पुन्हा पुन्हा तीच चूक का होतेय?

@@ -15,6 +15,11 @@ from cyvd.server.wavio import decode_wav, encode_wav
 from cyvd.watermark.audioseal_wm import message_is_cyv
 
 VOICE_RE = re.compile(r"^[a-z0-9_-]{1,32}$")
+TTS_UNAVAILABLE = (
+    "cyv say has no text-to-speech model right now. Kokoro was removed (docs/adr/0008); "
+    "F5-TTS (English) and IndicF5 (Hindi, Marathi) are not wired in yet. "
+    "Use `cyv convert` on a recording of yourself."
+)
 
 
 class RequestError(Exception):
@@ -43,7 +48,7 @@ def validate_voice_name(name: object) -> str:
 class Pipeline:
     def __init__(
         self,
-        tts: TTS,
+        tts: TTS | None,
         engine: Engine,
         watermarker: Watermarker,
         message: int,
@@ -128,6 +133,8 @@ class Pipeline:
         return encode_wav(audio)
 
     def say(self, text: str, voice: str | None, pitch: int, watermark: bool) -> bytes:
+        if self.tts is None:
+            raise RequestError("tts_unavailable", TTS_UNAVAILABLE)
         cfg = self.resolve_voice(voice)
         self.load(cfg)
         guide = self.tts.synth(text, cfg.tts_voice, cfg.tts_lang)
@@ -167,12 +174,12 @@ def build_pipeline(fake: bool) -> Pipeline:
 
         return Pipeline(FakeTTS(), FakeEngine(), FakeWatermarker(), 0, lenient_voices=True)
 
-    from cyvd.speech.kokoro import KokoroTTS
     from cyvd.timbre.applio import ApplioEngine
     from cyvd.watermark import CYV_MESSAGE, get_watermarker
 
+    # No speech layer until F5-TTS and IndicF5 are wired in (docs/adr/0008).
     return Pipeline(
-        KokoroTTS(),
+        None,
         ApplioEngine(paths.models_dir()),
         get_watermarker("audioseal"),
         CYV_MESSAGE,

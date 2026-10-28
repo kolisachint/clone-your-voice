@@ -2,6 +2,26 @@
 
 A good recording is the most important part of a good voice clone. Aim for **5 to 10 minutes** of clean speech. Use the sentences below, or read anything you like, as long as it is varied.
 
+## Recording batches (ADR-008)
+
+Most recording now happens in small **batches**. Each batch is a list of lines in [`batches/`](batches/). Every line has a file name, a language, a style and the text.
+
+1. **Record one long file per section** of the reading sheet: English, Hindi, Marathi, and singing. Name each file as its section heading says, for example `batch-001_hi.m4a`. Any audio format is fine. WAV is best, and a phone's voice-memo format (`.m4a`) also works.
+   - Before each line, **say its number in English** ("one", "two", ...), even in the Hindi and Marathi files. Then pause for about one second, read the line, and pause for about two seconds.
+   - **Made a mistake?** Say the same number again and read the whole line again. The last take of each number is kept, and the spoken numbers are cut out before training.
+   - You can still record one file per line instead, named after the line (`hi_conv_003.m4a`).
+2. Read the line in the **style** its sheet entry says:
+   - `read`: calm and clear, like reading aloud.
+   - `conv`: casual, like talking to a friend.
+   - `happy`, `sad`, `angry`: act it, as if you mean it. Do not shout into the mic. Step back a little for loud lines.
+   - `sing`: sing it. Singing clips teach only the voice model, never the speech models.
+3. If a word comes out wrong, record the whole line again. Do not join parts of takes together.
+4. Upload the clips to Google Drive, into the folder named for the batch, for example `MyDrive/clone-your-voice/batches/001/`.
+
+English clips (`en_…`) teach F5-TTS. Hindi and Marathi clips (`hi_…`, `mr_…`) teach IndicF5. Every clip teaches the voice model (Applio RVC), which is what makes the result sound like you.
+
+The tips below apply to every clip. The rule "do not shout or sing" does not apply to batch lines whose style asks for it.
+
 ## Before you record
 
 - **Find a quiet room.** Close windows and doors. Turn off fans, air conditioners, and the fridge if you can.
