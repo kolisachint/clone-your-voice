@@ -20,7 +20,7 @@ def voices_dir() -> Path:
 
 
 def models_dir() -> Path:
-    """Shared base models (HuBERT/ContentVec, RMVPE, Kokoro, AudioSeal)."""
+    """Shared base models (HuBERT/ContentVec, RMVPE, AudioSeal)."""
     return home() / "models"
 
 

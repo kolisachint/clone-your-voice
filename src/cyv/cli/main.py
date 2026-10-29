@@ -369,7 +369,11 @@ def build_parser() -> argparse.ArgumentParser:
     s = ds.add_parser("prepare", help="build dataset.zip from a folder of recordings")
     s.add_argument("dir", help="folder with your recordings")
     s.add_argument("-o", "--output", default="dataset.zip")
-    s.add_argument("--base-voice", default="am_adam", help="Kokoro base voice (default am_adam)")
+    s.add_argument(
+        "--base-voice",
+        default="am_adam",
+        help="legacy voice.json tts_base field, unused since ADR-008 (default am_adam)",
+    )
     s.add_argument("--name", help="voice name ^[a-z0-9_-]{1,32}$ (default: folder name)")
     s.add_argument("--owner", help="your name for the consent record (else prompted)")
     s.add_argument("--attest", help="consent attestation text (else prompted)")

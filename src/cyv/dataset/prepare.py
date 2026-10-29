@@ -29,7 +29,7 @@ LOW_LEVEL_DB = -40.0
 MOSTLY_SILENCE = 0.5
 MIN_ATTEST_LEN = 10
 
-# Kokoro voice prefix -> language.
+# Kokoro voice prefix -> language, for the legacy voice.json `tts_base` (unused since ADR-008).
 _LANGS = {
     "a": "en-US", "b": "en-GB", "e": "es", "f": "fr",
     "h": "hi", "i": "it", "j": "ja", "p": "pt-BR", "z": "zh",

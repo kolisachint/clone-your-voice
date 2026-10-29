@@ -15,7 +15,6 @@ dependencies = [
 # Applio's own requirements are installed from its pinned commit (see cyvd.timbre.applio.pin).
 daemon = [
     "torch>=2.6",  # 2.6 fixed a weights_only=True RCE; sanitize relies on it
-    "kokoro>=0.9.4",
     "audioseal>=0.2.0",
     "soundfile>=0.12",
     "soxr>=0.5",

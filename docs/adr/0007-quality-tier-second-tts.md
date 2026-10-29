@@ -1,6 +1,6 @@
 # ADR-007: F5-TTS as an opt-in second text-to-speech for the quality tier
 
-Status: Proposed
+Status: Superseded by [ADR-008](0008-shortlist-f5-indicf5-rvc.md). F5-TTS is now the English speech model, not an optional tier.
 
 ## Context
 
