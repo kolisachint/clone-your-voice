@@ -3,6 +3,16 @@
 **Status: planned, not run.** This page fixes the questions, the method and the pass bars *before*
 any result exists, so the results cannot be explained away afterwards. Results go at the end.
 
+**Progress (30 Oct 2026):**
+
+- Done: `cyv_lab.py` copied to Drive (`code/`, sha256 starts `329cf257eac21ae9`).
+- Done: `batch-001.tsv` in Drive (`batches/001/`), identical to the repository copy.
+- Done: batch 001 recorded.
+- Next: upload the recordings to `batches/001/` (`batch-001_en`, `_hi`, `_mr`, `_sing`). They
+  were not in Drive at the end of the day.
+- Not done yet: the B1 blind listen of `sachinkoli2`.
+- Not done yet: the Colab run.
+
 ## Questions
 
 - **B9a.** F5-TTS (English) and IndicF5 (Hindi, Marathi) clone a line from one of your other clips.
