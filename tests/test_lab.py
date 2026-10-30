@@ -191,6 +191,40 @@ def test_pick_reference() -> None:
     assert lab.pick_reference(lines[3], lines, qa, secs) is None  # sing clips are never refs
 
 
+def test_emotion_set() -> None:
+    lines = [
+        *_lines(),
+        lab.Line("en_sad_001", "en", "sad", "I miss it."),
+        lab.Line("en_angry_001", "en", "angry", "Stop it now!"),
+        lab.Line("hi_happy_001", "hi", "happy", "वाह"),
+    ]
+    qa = {x.file: {"ok": True, "cer": 0.1} for x in lines}
+    qa["en_read_001"]["cer"] = 0.05  # the cleanest calm clip is the calm reference
+    secs = dict.fromkeys(qa, 6.0)
+    emo = lab.emotion_set(lines, qa, secs)
+    target, refs = emo["en"]
+    assert target.file == "en_conv_001"
+    assert [r.file for r in refs] == ["en_read_001", "en_angry_001", "en_sad_001"]
+    assert "hi" not in emo  # one calm line only: nothing left to speak
+    secs["en_angry_001"] = secs["en_sad_001"] = 2.0  # too short to clone from
+    assert lab.emotion_set(lines, qa, secs) == {}
+
+
+def test_listening_sheet_has_names_not_text() -> None:
+    sheet = lab.listening_sheet("T", "Q?", {"en_conv_001": ["A", "B"]})
+    assert "| en_conv_001 | A, B | |" in sheet
+
+
+def test_rvc_settings_match_daemon() -> None:
+    import re
+
+    engine = (ROOT / "src" / "cyvd" / "timbre" / "applio" / "engine.py").read_text()
+    assert f"INDEX_RATE = {lab.INDEX_RATE}" in engine
+    assert re.search(rf"PROTECT = {lab.RVC_VARIANTS['rvc']}\b", engine)
+    assert all(0 <= p <= 0.5 for p in lab.RVC_VARIANTS.values())  # Applio's allowed range
+    assert '"--protect", protect' in _nb_code() and '"--index-rate", lab.INDEX_RATE' in _nb_code()
+
+
 def test_find_uploads(tmp_path: Path) -> None:
     lines = _lines()
     for name in ("batch-001_en.m4a", "hi_conv_001.wav", "stray.wav", "batch-001_sing.wav"):
@@ -211,12 +245,15 @@ def test_find_uploads(tmp_path: Path) -> None:
 def test_report_has_numbers_not_text() -> None:
     rows = [
         {"file": "en_conv_001", "engine": "f5", "ref": "en_conv_002", "qa_cer": 0.05,
-         "tts_cer": 0.1, "tts_sim": 0.6, "rvc_cer": 0.12, "rvc_sim": 0.8},
+         "tts_cer": 0.1, "tts_sim": 0.6, "rvc_cer": 0.12, "rvc_sim": 0.8,
+         "rvc33_cer": 0.11, "rvc33_sim": 0.7},
         {"file": "hi_sing_001", "engine": None, "qa_cer": None},
     ]  # fmt: skip
     md = lab.report_markdown("001", rows)
     assert "| en_conv_001 | f5 | en_conv_002 | 0.05 |" in md
     assert "f5 mean rvc_sim: 0.80 (1 lines)" in md
+    assert "f5 mean rvc33_sim: 0.70 (1 lines)" in md
+    assert "| 0.12 | 0.80 | 0.11 | 0.70 |" in md
     assert "Hey" not in md
 
 

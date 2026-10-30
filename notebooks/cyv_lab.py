@@ -30,6 +30,13 @@ MIN_CLIP_S, MAX_CLIP_S = 1.0, 20.0
 REF_MIN_S, REF_MAX_S = 4.0, 12.0
 QA_MAX_CER = 0.35  # a clip whose transcript differs more than this is flagged for a listen
 
+# Applio settings for B9 (docs/benchmarks/B9-voice-lab-batch-001.md). The index rate is the
+# daemon's (src/cyvd/timbre/applio/engine.py), not Applio's own default of 0.3. Each variant is
+# one conversion: "rvc" uses the daemon's protect of 0.5 (protection off), "rvc33" uses 0.33.
+INDEX_RATE = 0.75
+RVC_VARIANTS = {"rvc": 0.5, "rvc33": 0.33}  # name -> protect
+NEUTRAL_STYLES = frozenset({"conv", "read"})
+
 
 class LabError(Exception):
     pass
@@ -299,25 +306,56 @@ def cer(reference: str, hypothesis: str) -> float:
     return prev[-1] / len(r)
 
 
+def _usable_ref(x: Line, qa: dict[str, dict], seconds: dict[str, float]) -> bool:
+    return (
+        x.engine is not None
+        and qa.get(x.file, {}).get("ok", False)
+        and REF_MIN_S <= seconds.get(x.file, 0.0) <= REF_MAX_S
+    )
+
+
 def pick_reference(
     target: Line, lines: list[Line], qa: dict[str, dict], seconds: dict[str, float]
 ) -> Line | None:
     """Another clip of the same language to clone from: same style first, then lowest CER."""
-
-    def usable(x: Line) -> bool:
-        q = qa.get(x.file, {})
-        return (
-            x.file != target.file
-            and x.lang == target.lang
-            and x.engine is not None
-            and q.get("ok", False)
-            and REF_MIN_S <= seconds.get(x.file, 0.0) <= REF_MAX_S
-        )
-
-    pool = [x for x in lines if usable(x)]
+    pool = [
+        x
+        for x in lines
+        if x.file != target.file and x.lang == target.lang and _usable_ref(x, qa, seconds)
+    ]
     if not pool:
         return None
     return min(pool, key=lambda x: (x.style != target.style, qa[x.file]["cer"], x.file))
+
+
+def emotion_set(
+    lines: list[Line], qa: dict[str, dict], seconds: dict[str, float]
+) -> dict[str, tuple[Line, list[Line]]]:
+    """B9b: per language, one neutral line and the clips to speak it from.
+
+    The clips are one calm reference (conv or read) and every usable clip in an emotion style.
+    The same words spoken from each shows whether the speech model copies the reference's tone.
+    A language without a calm reference, an emotion clip and a second neutral line is left out.
+    """
+    out: dict[str, tuple[Line, list[Line]]] = {}
+    for lang in sorted({x.lang for x in lines}):
+        mine = [x for x in lines if x.lang == lang]
+        calm = [x for x in mine if x.style in NEUTRAL_STYLES and _usable_ref(x, qa, seconds)]
+        moods = [x for x in mine if x.style not in NEUTRAL_STYLES and _usable_ref(x, qa, seconds)]
+        if not calm or not moods:
+            continue
+        ref = min(calm, key=lambda x: (qa[x.file]["cer"], x.file))
+        targets = [x for x in mine if x.style in NEUTRAL_STYLES and x.file != ref.file]
+        if targets:
+            out[lang] = (targets[0], [ref, *sorted(moods, key=lambda x: (x.style, x.file))])
+    return out
+
+
+def listening_sheet(title: str, question: str, groups: dict[str, list[str]]) -> str:
+    """A form to fill in while listening: one row per group, file names only."""
+    out = [f"# {title}", "", question, "", "| group | files | your answer |", "|---|---|---|"]
+    out += [f"| {g} | {', '.join(files)} | |" for g, files in groups.items()]
+    return "\n".join(out) + "\n"
 
 
 def report_markdown(batch: str, rows: list[dict]) -> str:
@@ -326,13 +364,18 @@ def report_markdown(batch: str, rows: list[dict]) -> str:
     def f(v: object) -> str:
         return f"{v:.2f}" if isinstance(v, float) else ("" if v is None else str(v))
 
-    cols = ["file", "engine", "ref", "qa_cer", "tts_cer", "tts_sim", "rvc_cer", "rvc_sim"]
+    scored = ["tts", *RVC_VARIANTS]
+    cols = ["file", "engine", "ref", "qa_cer"] + [
+        f"{v}_{m}" for v in scored for m in ("cer", "sim")
+    ]
     out = [
         f"# Batch {batch}: results",
         "",
         "- `qa_cer`: how far your recording is from its line (speech recognition). Lower is better.",
-        "- `tts_cer`, `rvc_cer`: the same for the cloned speech, before and after your voice model.",
-        "- `tts_sim`, `rvc_sim`: how much the clone sounds like your real recording of the line "
+        "- `*_cer`: the same for the cloned speech. `tts` is before your voice model; "
+        + ", ".join(f"`{v}` is after it with protect {p}" for v, p in RVC_VARIANTS.items())
+        + f", index rate {INDEX_RATE}.",
+        "- `*_sim`: how much the clone sounds like your real recording of the line "
         "(speaker similarity, 0 to 1). Higher is better.",
         "",
         "| " + " | ".join(cols) + " |",
@@ -341,7 +384,7 @@ def report_markdown(batch: str, rows: list[dict]) -> str:
     out += ["| " + " | ".join(f(r.get(c)) for c in cols) + " |" for r in rows]
     for engine in sorted({r["engine"] for r in rows if r.get("engine")}):
         sub = [r for r in rows if r.get("engine") == engine]
-        for key in ("tts_sim", "rvc_sim", "tts_cer", "rvc_cer"):
+        for key in [f"{v}_{m}" for m in ("sim", "cer") for v in scored]:
             vals = [r[key] for r in sub if isinstance(r.get(key), float)]
             if vals:
                 out.append(
